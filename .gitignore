@@ -1,0 +1,13 @@
+target/
+.classpath
+.project
+.idea
+*.iml
+.settings
+**/*.class
+**/*.jar
+**/*.pyc
+*.log
+*.DS_Store
+tree_*.txt
+ttree_*.txt
