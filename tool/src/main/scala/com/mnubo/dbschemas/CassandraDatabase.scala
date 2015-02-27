@@ -11,11 +11,11 @@ import scala.util.control.NonFatal
 object CassandraDatabase extends Database {
   val name = "cassandra"
 
-  override def openConnection(hosts: String, port: Int, userName: String, pwd: String, keyspace: String): DatabaseConnection =
-    new CassandraConnection(hosts, port, userName, pwd, keyspace)
+  override def openConnection(schemaName: String, hosts: String, port: Int, userName: String, pwd: String, keyspace: String): DatabaseConnection =
+    new CassandraConnection(schemaName, hosts, keyspace)
 }
 
-class CassandraConnection(hosts: String, port: Int, userName: String, pwd: String, keyspace: String) extends DatabaseConnection {
+class CassandraConnection(schemaName: String, hosts: String, keyspace: String) extends DatabaseConnection {
   private val cluster = Cluster.builder().addContactPoints(hosts.split(","): _*).build()
   private val session = cluster.connect()
   private val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'")
@@ -32,7 +32,7 @@ class CassandraConnection(hosts: String, port: Int, userName: String, pwd: Strin
     ensureVersionTable()
 
     session
-      .execute("SELECT migration_version FROM version")
+      .execute(s"SELECT migration_version FROM ${schemaName}_version")
       .all()
       .asScala
       .map(_.getString("migration_version"))
@@ -40,10 +40,10 @@ class CassandraConnection(hosts: String, port: Int, userName: String, pwd: Strin
   }
 
   override def markMigrationAsInstalled(migrationVersion: String) =
-    execute(s"INSERT INTO version (migration_version, migration_date) VALUES ('$migrationVersion', '${df.format(new Date())}')")
+    execute(s"INSERT INTO ${schemaName}_version (migration_version, migration_date) VALUES ('$migrationVersion', '${df.format(new Date())}')")
 
   override def markMigrationAsUninstalled(migrationVersion: String) =
-    execute(s"DELETE FROM version WHERE migration_version = '$migrationVersion'")
+    execute(s"DELETE FROM ${schemaName}_version WHERE migration_version = '$migrationVersion'")
 
   override def close() =
     try {
@@ -55,11 +55,11 @@ class CassandraConnection(hosts: String, port: Int, userName: String, pwd: Strin
 
   private def ensureVersionTable() =
     if (!hasVersionTable)
-      execute("CREATE TABLE version (migration_version TEXT, migration_date TIMESTAMP, PRIMARY KEY (migration_version))")
+      execute(s"CREATE TABLE ${schemaName}_version (migration_version TEXT, migration_date TIMESTAMP, PRIMARY KEY (migration_version))")
 
   private def hasVersionTable =
     try {
-      execute("SELECT * FROM version LIMIT 1")
+      execute(s"SELECT * FROM ${schemaName}_version LIMIT 1")
       true
     }
     catch {

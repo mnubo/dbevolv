@@ -17,7 +17,6 @@ object DbSchemas extends App {
       if (args.size > 5) Some(args(5)) else None
     )
 
-
   def usage() = {
     println("dbschemas: upgrades / downgrades databases.")
     println("documentation: http://git-lab1.mtl.mnubo.com/mnubo/dbschemas/tree/master")
@@ -38,6 +37,6 @@ object DbSchemas extends App {
 
     val db = databases(config.getString("database_kind"))
 
-    DatabaseMigrator.migrate(db, host, port, userName, pwd, schema, targetVersion)
+    DatabaseMigrator.migrate(db, config.getString("schema_name"), host, port, userName, pwd, schema, targetVersion)
   }
 }
