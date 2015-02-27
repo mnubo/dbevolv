@@ -34,6 +34,10 @@ lazy val commonSettings = releaseSettings ++ Seq(
   )
 )
 
+lazy val root = (project in file(".")).
+  settings(commonSettings: _*).
+  aggregate(tool, plugin)
+
 lazy val tool = (project in file("tool")).
   settings(commonSettings: _*).
   settings(
