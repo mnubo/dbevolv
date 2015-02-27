@@ -48,7 +48,7 @@ object DatabaseMigrator {
       stmtFile = findStatementFile(step, "upgrade.")
       stmts = getStatements(stmtFile)
     } {
-      stmts.foreach(connection.execute)
+      stmts.foreach(_.execute(connection))
       connection.markMigrationAsInstalled(step)
     }
   }
@@ -59,7 +59,7 @@ object DatabaseMigrator {
       stmtFile = findStatementFile(step, "downgrade.")
       stmts = getStatements(stmtFile)
     } {
-      stmts.foreach(connection.execute)
+      stmts.foreach(_.execute(connection))
       connection.markMigrationAsUninstalled(step)
     }
   }
@@ -72,6 +72,12 @@ object DatabaseMigrator {
       .filterNot(_.startsWith("#"))
       .mkString(" ")
       .split(";")
+      .map { line =>
+        if (line.startsWith("@@"))
+          ClassStatement(line.replace("@@", ""))
+        else
+          StringStatement(line)
+      }
 
   private def findStatementFile(step: String, stmtType: String) =
     new File(s"migrations/$step")
@@ -89,4 +95,22 @@ object DatabaseMigrator {
           pathname.isDirectory && !pathname.isHidden
       })
       .map(_.getName)
+
+  private sealed trait Statement {
+    def execute(conn: DatabaseConnection)
+  }
+
+  private case class StringStatement(statementText: String) extends Statement {
+    override def execute(conn: DatabaseConnection) =
+      conn.execute(statementText)
+  }
+
+  private case class ClassStatement(className: String) extends Statement {
+    private val c = Class.forName(className)
+    private val scripInstance = c.newInstance()
+    private val executeMethod = c.getMethods.find(_.getName == "execute").get
+
+    override def execute(conn: DatabaseConnection) =
+      executeMethod.invoke(scripInstance, conn.innerConnection)
+  }
 }

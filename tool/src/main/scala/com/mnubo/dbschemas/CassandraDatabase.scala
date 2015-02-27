@@ -5,8 +5,8 @@ import java.util.Date
 
 import com.datastax.driver.core.Cluster
 
+import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
-import collection.JavaConverters._
 
 object CassandraDatabase extends Database {
   val name = "cassandra"
@@ -22,8 +22,11 @@ class CassandraConnection(hosts: String, port: Int, userName: String, pwd: Strin
 
   execute("USE " + keyspace)
 
-  override def execute(smt: String) =
+  override def execute(smt: String): Unit =
     session.execute(smt)
+
+  override def innerConnection: AnyRef =
+    session
 
   override def getInstalledMigrationVersions: Set[String] = {
     ensureVersionTable()

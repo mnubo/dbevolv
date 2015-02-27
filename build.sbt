@@ -19,7 +19,7 @@ lazy val commonSettings = releaseSettings ++ Seq(
   publishTo         := Some(mnuboReleases),
   credentials       += Credentials("Artifactory Realm", "artifactory.mtl.mnubo.com", "admin", "rootroot"),
   releaseVersion    := identity, // The current version is already the good one
-  nextVersion       := { (ver: String) => sbtrelease.Version(ver).map(_.bumpMinor.string).getOrElse(versionFormatError) }, // Don't 'snapshot' the version
+  nextVersion       := { (ver: String) => sbtrelease.Version(ver).map(_.bumpBugfix.string).getOrElse(versionFormatError) }, // Don't 'snapshot' the version
   releaseProcess    := Seq[ReleaseStep]( // Don't need to commit the release version, since it is already the good one
     checkSnapshotDependencies,
     inquireVersions,
