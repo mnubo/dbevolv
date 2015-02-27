@@ -8,7 +8,9 @@ trait Database {
 }
 
 trait DatabaseConnection extends Closeable {
-  def execute(smt: String)
+  def execute(smt: String): Unit
+  /** Get the concrete connection this DatabaseConnection is wrapping. Ex: the com.datastax.driver.core.Session. **/
+  def innerConnection: AnyRef
   def getInstalledMigrationVersions: Set[String]
   def markMigrationAsInstalled(migrationVersion: String)
   def markMigrationAsUninstalled(migrationVersion: String)
