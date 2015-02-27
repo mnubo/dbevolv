@@ -5,8 +5,8 @@ import java.io.{FileFilter, File}
 import scala.io.Source
 
 object DatabaseMigrator {
-  def migrate(db: Database, host: String, port: Int, userName: String, pwd: String, schema: String, targetVersion: Option[String]): Unit = {
-    val connection = db.openConnection(host, port, userName, pwd, schema)
+  def migrate(db: Database, schemaName: String, host: String, port: Int, userName: String, pwd: String, schema: String, targetVersion: Option[String]): Unit = {
+    val connection = db.openConnection(schemaName, host, port, userName, pwd, schema)
     try {
       migrate(connection, targetVersion)
     }

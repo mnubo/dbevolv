@@ -1,7 +1,7 @@
 dbschemas
 =========
 
-Allows to upgrade / downgrade our database instances to a particular version.
+Allows to upgrade / downgrade our database instances to a particular version. It supports multiple logical databases in the same physical database/keyspace.
 
 Supported databases
 -------------------
@@ -17,20 +17,16 @@ Writing database migrations
 Create a git repo with the following structure:
 
     /db.conf
-    /build.sbt
     /project/plugins.sbt
             /build.properties
     /migrations/0001/
                /0002/
                /0003/
 
-The `db.conf` should contain which database the schema is for. See "Supported databases" for valid values. Example:
+The `db.conf` should contain which database the schema is for. See "Supported databases" for valid values. You must also specify a logical name. Example:
 
     database_kind = cassandra
-
-The `build.sbt` should contain the name of the schema. It will be used as the base name for the Docker container. Example:
-
-    name := "reverse-geo"
+    schema_name = reverse_geo
 
 The `build.properties` file should contain which SBT version to use:
 
@@ -40,7 +36,7 @@ The `plugins.sbt` should point to this plugin on Artifactory:
 
     resolvers += "Mnubo release repository" at "http://artifactory.mtl.mnubo.com:8081/artifactory/libs-release-local/"
 
-    addSbtPlugin("com.mnubo" % "dbschemas-sbt-plugin" % "1.13.0")
+    addSbtPlugin("com.mnubo" % "dbschemas-sbt-plugin" % "1.13.2")
 
 The directories names in `/migrations` constitute the migration versions. Migrations will be applied in the lexical order of those directory names. Ex: when asking dbschema to upgrade to version '0002' in the above example, '0001' will be executed first, then '0002'.
 
@@ -70,6 +66,8 @@ Your class should be located at the usual Maven/SBT location. In this example: s
     }
 
 Note: you can also use this trick in downgrade scripts.
+
+If your custom script needs additional dependencies, you can add them in a `build.sbt` file through the libraryDependencies SBT key. See [SBT documentation](http://www.scala-sbt.org/0.13/docs/Library-Management.html)
 
 Upgrading / downgrading a database
 ----------------------------------

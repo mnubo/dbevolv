@@ -52,7 +52,10 @@ lazy val plugin = (project in file("plugin"))
   .settings(commonSettings: _*)
   .settings(
     name := "dbschemas-sbt-plugin",
-    sbtPlugin := true
+    sbtPlugin := true,
+    libraryDependencies ++= Seq(
+      "com.typesafe"            %  "config"                 % "1.2.1"
+    )
   )
 
 

@@ -4,7 +4,7 @@ import java.io.Closeable
 
 trait Database {
   def name: String
-  def openConnection(host: String, port: Int, userName: String, pwd: String, schema: String): DatabaseConnection
+  def openConnection(schemaName: String, host: String, port: Int, userName: String, pwd: String, schema: String): DatabaseConnection
 }
 
 trait DatabaseConnection extends Closeable {
