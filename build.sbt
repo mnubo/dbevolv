@@ -10,7 +10,6 @@ val mnuboReleases = "Mnubo releases" at s"$mnuboNexus/libs-release-local/"
 
 lazy val commonSettings = releaseSettings ++ Seq(
   organization      := "com.mnubo",
-  version           := "1.0.0",
   scalacOptions     ++= Seq("-target:jvm-1.7", "-deprecation", "-feature"),
   resolvers         := Seq( // Completely overrides the list of standard repos, since everything is cached in Artifactory (the less resolvers you have, the faster the resolve phase).
     mnuboThirdParties,
@@ -20,7 +19,7 @@ lazy val commonSettings = releaseSettings ++ Seq(
   publishTo         := Some(mnuboReleases),
   credentials       += Credentials("Artifactory Realm", "artifactory.mtl.mnubo.com", "admin", "rootroot"),
   releaseVersion    := identity, // The current version is already the good one
-  nextVersion       := { (ver: String) => Version(ver).map(_.bumpMinor.string).getOrElse(versionFormatError) }, // Don't 'snapshot' the version
+  nextVersion       := { (ver: String) => sbtrelease.Version(ver).map(_.bumpMinor.string).getOrElse(versionFormatError) }, // Don't 'snapshot' the version
   releaseProcess    := Seq[ReleaseStep]( // Don't need to commit the release version, since it is already the good one
     checkSnapshotDependencies,
     inquireVersions,
