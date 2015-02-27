@@ -10,7 +10,6 @@ val mnuboReleases = "Mnubo releases" at s"$mnuboNexus/libs-release-local/"
 
 lazy val commonSettings = releaseSettings ++ Seq(
   organization      := "com.mnubo",
-  version           := "1.0.0",
   scalacOptions     ++= Seq("-target:jvm-1.7", "-deprecation", "-feature"),
   resolvers         := Seq( // Completely overrides the list of standard repos, since everything is cached in Artifactory (the less resolvers you have, the faster the resolve phase).
     mnuboThirdParties,
