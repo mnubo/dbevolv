@@ -34,13 +34,14 @@ lazy val commonSettings = releaseSettings ++ Seq(
   )
 )
 
-lazy val root = (project in file(".")).
-  settings(commonSettings: _*).
-  aggregate(tool, plugin)
+lazy val root = (project in file("."))
+  .settings(commonSettings: _*)
+  .settings(publish := { })
+  .aggregate(tool, plugin)
 
-lazy val tool = (project in file("tool")).
-  settings(commonSettings: _*).
-  settings(
+lazy val tool = (project in file("tool"))
+  .settings(commonSettings: _*)
+  .settings(
     name := "dbschemas",
     libraryDependencies ++= Seq(
       "com.datastax.cassandra"  %  "cassandra-driver-core"  % "2.1.4",
@@ -48,9 +49,9 @@ lazy val tool = (project in file("tool")).
     )
   )
 
-lazy val plugin = (project in file("plugin")).
-  settings(commonSettings: _*).
-  settings(
+lazy val plugin = (project in file("plugin"))
+  .settings(commonSettings: _*)
+  .settings(
     name := "dbschemas-sbt-plugin",
     sbtPlugin := true
   )
