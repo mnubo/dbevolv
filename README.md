@@ -17,6 +17,8 @@ Writing database migrations
 Create a git repo with the following structure:
 
     /db.conf
+    /build.sbt
+    /version.sbt
     /project/plugins.sbt
             /build.properties
     /migrations/0001/
@@ -28,6 +30,14 @@ The `db.conf` should contain which database the schema is for. See "Supported da
     database_kind = cassandra
     schema_name = reverse_geo
 
+The `build.sbt` file should activate the `dbschemas` SBT plugin that will take care of everything:
+
+    enablePlugins(DbSchemasPlugin)
+
+The `version.sbt` file should contain the initial version of this particular schema manager. Always 1.0.0 for new project, this will be automatically managed in Jenkins after each build:
+
+    version in ThisBuild := "1.0.0"
+
 The `build.properties` file should contain which SBT version to use:
 
     sbt.version=0.13.7
@@ -36,7 +46,7 @@ The `plugins.sbt` should point to this plugin on Artifactory:
 
     resolvers += "Mnubo release repository" at "http://artifactory.mtl.mnubo.com:8081/artifactory/libs-release-local/"
 
-    addSbtPlugin("com.mnubo" % "dbschemas-sbt-plugin" % "1.13.2")
+    addSbtPlugin("com.mnubo" % "dbschemas-sbt-plugin" % "1.13.20")
 
 The directories names in `/migrations` constitute the migration versions. Migrations will be applied in the lexical order of those directory names. Ex: when asking dbschema to upgrade to version '0002' in the above example, '0001' will be executed first, then '0002'.
 
@@ -69,6 +79,11 @@ Note: you can also use this trick in downgrade scripts.
 
 If your custom script needs additional dependencies, you can add them in a `build.sbt` file through the libraryDependencies SBT key. See [SBT documentation](http://www.scala-sbt.org/0.13/docs/Library-Management.html)
 
+Example
+-------
+
+[cassandra-reverse-geocoding](http://git-lab1.mtl.mnubo.com/mnubo/cassandra-reverse-geocoder/tree/master)
+
 Upgrading / downgrading a database
 ----------------------------------
 
@@ -76,10 +91,10 @@ The target schema/database/keyspace must already exist. dbschemas do not support
 
 Command line:
 
-    sbt "run <hosts> <port> <username> <pwd> <schema/database/keyspace> [<version>]"
+    docker run -it --rm docker.mnubo.com/<schema_name>:latest <hosts> <port> <username> <pwd> <schema/database/keyspace> [<version>]"
 
 Some of those arguments might not be necessary for some kind of databases. For example, `<port>`, `<username>`, and `<pwd>` are ignored by the Cassandra database. Just pass '0' in that case. Ex:
 
-    sbt "run atca-mnu1-s06.mtl.mnubo.com,atca-mnu1-s09.mtl.mnubo.com,atca-mnu1-s13.mtl.mnubo.com 0 0 0 mnuboglobalconfig"
+    docker run -it --rm docker.mnubo.com/reverse_geo:latest atca-mnu1-s06.mtl.mnubo.com,atca-mnu1-s09.mtl.mnubo.com,atca-mnu1-s13.mtl.mnubo.com 0 0 0 mnuboglobalconfig"
 
 Version is the version you want to upgrade / downgrade to. If ommited, the database will be upgraded to the latest version.
