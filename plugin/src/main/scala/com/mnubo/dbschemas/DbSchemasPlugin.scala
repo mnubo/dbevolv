@@ -41,6 +41,7 @@ object DbSchemasPlugin extends AutoPlugin with NativePackagerKeys {
     defaultLinuxInstallLocation in Docker := "/app",
     // Since we have a fat jar, this simple command is all what's needed
     dockerEntrypoint                      := Seq("java", "-jar", s"/app/$schemaManagerJarName"),
+    dockerRepository                      := Some("dockerep-0.mtl.mnubo.com"),
     // Overrides all the default mappings, so it is cleaner and leaner.
     // Documenation of these arcane methods: http://www.scala-sbt.org/sbt-native-packager/formats/universal.html#settings
     mappings in Docker                    := Seq(
