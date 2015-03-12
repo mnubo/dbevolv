@@ -27,6 +27,7 @@ object DbSchemasPlugin extends AutoPlugin with NativePackagerKeys {
   override lazy val projectSettings: Seq[Setting[_]] = releaseSettings ++ Seq(
     // Avoid the user to give a name to the SBT project: use the schema name defined in the config.
     name                                  := schemaName,
+    organization                          := "com.mnubo",
     // Specify what is the main class to run in the fat jar
     mainClass in assembly                 := Some("com.mnubo.dbschemas.DbSchemas"),
     // We just need the dbschemas library to build a schema. We automatically infer the version to use.
@@ -41,6 +42,7 @@ object DbSchemasPlugin extends AutoPlugin with NativePackagerKeys {
     defaultLinuxInstallLocation in Docker := "/app",
     // Since we have a fat jar, this simple command is all what's needed
     dockerEntrypoint                      := Seq("java", "-jar", s"/app/$schemaManagerJarName"),
+    dockerRepository                      := Some("dockerep-0.mtl.mnubo.com"),
     // Overrides all the default mappings, so it is cleaner and leaner.
     // Documenation of these arcane methods: http://www.scala-sbt.org/sbt-native-packager/formats/universal.html#settings
     mappings in Docker                    := Seq(
