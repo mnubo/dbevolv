@@ -27,6 +27,7 @@ object DbSchemasPlugin extends AutoPlugin with NativePackagerKeys {
   override lazy val projectSettings: Seq[Setting[_]] = releaseSettings ++ Seq(
     // Avoid the user to give a name to the SBT project: use the schema name defined in the config.
     name                                  := schemaName,
+    organization                          := "com.mnubo",
     // Specify what is the main class to run in the fat jar
     mainClass in assembly                 := Some("com.mnubo.dbschemas.DbSchemas"),
     // We just need the dbschemas library to build a schema. We automatically infer the version to use.
