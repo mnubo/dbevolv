@@ -1,5 +1,12 @@
+import sbtrelease.ReleasePlugin.ReleaseKeys._
+import sbtrelease.ReleaseStep
+
 lazy val root = (project in file("."))
-  .settings(publish := { })
+  .settings(releaseSettings: _*)
+  .settings(
+    publish := { },
+    releaseProcess := Seq.empty[ReleaseStep]
+  )
   .aggregate(tool, plugin)
 
 lazy val tool = (project in file("tool"))
