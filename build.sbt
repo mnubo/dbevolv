@@ -1,11 +1,6 @@
-import sbtrelease.ReleasePlugin.ReleaseKeys._
-import sbtrelease.ReleaseStep
-
 lazy val root = (project in file("."))
-  .settings(releaseSettings: _*)
-  .settings(
-    publish := { }
-  )
+  .enablePlugins(MnuboLibraryPlugin)
+  .settings(publish := { })
   .aggregate(tool, plugin)
 
 lazy val tool = (project in file("tool"))
