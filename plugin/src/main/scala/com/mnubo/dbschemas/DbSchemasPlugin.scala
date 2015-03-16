@@ -22,6 +22,8 @@ object DbSchemasPlugin extends AutoPlugin with NativePackagerKeys {
   private val schemaManagerJarName = s"$schemaName-schema-manager.jar"
   private val dbschemasVersion = Source.fromInputStream(getClass.getResourceAsStream("/version.txt")).getLines().mkString
   private val mnuboNexus = "http://artifactory.mtl.mnubo.com:8081/artifactory"
+  private val mnuboThirdParties = "Mnubo third parties" at s"$mnuboNexus/repo"
+  private val mnuboSnaphots = "Mnubo snapshots" at s"$mnuboNexus/libs-snapshot-local/"
   private val mnuboReleases = "Mnubo releases" at s"$mnuboNexus/libs-release-local/"
 
   override def requires = DockerPlugin && AssemblyPlugin
@@ -30,6 +32,7 @@ object DbSchemasPlugin extends AutoPlugin with NativePackagerKeys {
     // Avoid the user to give a name to the SBT project: use the schema name defined in the config.
     name                                  := schemaName,
     organization                          := "com.mnubo",
+    resolvers                             := Seq(mnuboReleases, mnuboThirdParties, mnuboSnaphots),
     publishTo                             := Some(mnuboReleases),
     // Specify what is the main class to run in the fat jar
     mainClass in assembly                 := Some("com.mnubo.dbschemas.DbSchemas"),
