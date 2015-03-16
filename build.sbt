@@ -4,8 +4,7 @@ import sbtrelease.ReleaseStep
 lazy val root = (project in file("."))
   .settings(releaseSettings: _*)
   .settings(
-    publish := { },
-    releaseProcess := Seq.empty[ReleaseStep]
+    publish := { }
   )
   .aggregate(tool, plugin)
 
