@@ -25,10 +25,11 @@ Create a git repo with the following structure:
                /0002/
                /0003/
 
-The `db.conf` should contain which database the schema is for. See "Supported databases" for valid values. You must also specify a logical name. Finally, specify all the host/port/username/password for all the environment. Example:
+The `db.conf` should contain the description of the database schema. You must also specify the connection strings for all the environments. For example:
 
     database_kind = cassandra
     schema_name = reverse_geo
+    create_database_statement = "CREATE KEYSPACE @@DATABASE_NAME@@ WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }"
 
     workstation {
       host = "localhost"
@@ -44,9 +45,21 @@ The `db.conf` should contain which database the schema is for. See "Supported da
     }
     prod {
       host = "<the prod host>"
+      create_database_statement = "CREATE KEYSPACE @@DATABASE_NAME@@ WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 3 }"
     }
 
-Note: in the case of Cassandra, there is no `port`, `username`, nor `password` settings, but for other databases kind like MySQL, you will need to provide those as well.
+Here are the different parameters you can configure:
+
+* **database_kind**: which kind of database we are targeting. See "Supported databases" for valid values.
+* **schema_name**: the logical name of this database schema.
+* **host**: the host or hosts name(s) to connect to.
+* **port**: the port to connect to. Leave empty for default port.
+* **username**: the username to use to connect to the database instance. Certain kind of databases like Cassandra don't need that.
+* **password**: the password to use to connect to the database instance. Certain kind of databases like Cassandra don't need that.
+* **create_database_statement**: The CQL / SQL / HQL statement to use if the database does not even exists when running the schema manager. The `@@DATABASE_NAME@@` place holder will automatically be replaced by the actual schema / keyspace name (see also "Computing the database name / schema name / index name / keyspace" below).
+* **name_provider_class**: See "Computing the database name / schema name / index name / keyspace" below.
+
+Note: most of the settings can have a default value at the top, but can be overriden for a given environment. See for example `create_database_statement` in the above example.
 
 The `build.sbt` file should activate the `dbschemas` SBT plugin that will take care of everything:
 

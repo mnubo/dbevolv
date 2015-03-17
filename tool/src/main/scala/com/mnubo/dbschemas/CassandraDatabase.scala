@@ -11,14 +11,16 @@ import scala.util.control.NonFatal
 object CassandraDatabase extends Database {
   val name = "cassandra"
 
-  override def openConnection(schemaName: String, hosts: String, port: Int, userName: String, pwd: String, keyspace: String): DatabaseConnection =
-    new CassandraConnection(schemaName, hosts, keyspace)
+  override def openConnection(schemaName: String, hosts: String, port: Int, userName: String, pwd: String, keyspace: String, createDatabaseStatement: String): DatabaseConnection =
+    new CassandraConnection(schemaName, hosts, keyspace, createDatabaseStatement)
 }
 
-class CassandraConnection(schemaName: String, hosts: String, keyspace: String) extends DatabaseConnection {
+class CassandraConnection(schemaName: String, hosts: String, keyspace: String, createDatabaseStatement: String) extends DatabaseConnection {
   private val cluster = Cluster.builder().addContactPoints(hosts.split(","): _*).build()
   private val session = cluster.connect()
   private val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'")
+
+  if (!hasKeyspace) execute(createDatabaseStatement)
 
   execute("USE " + keyspace)
 
@@ -60,6 +62,16 @@ class CassandraConnection(schemaName: String, hosts: String, keyspace: String) e
   private def hasVersionTable =
     try {
       execute(s"SELECT * FROM ${schemaName}_version LIMIT 1")
+      true
+    }
+    catch {
+      case NonFatal(_) =>
+        false
+    }
+
+  private def hasKeyspace =
+    try {
+      execute("USE " + keyspace)
       true
     }
     catch {

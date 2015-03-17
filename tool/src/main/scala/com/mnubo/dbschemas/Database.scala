@@ -4,7 +4,13 @@ import java.io.Closeable
 
 trait Database {
   def name: String
-  def openConnection(schemaName: String, host: String, port: Int, userName: String, pwd: String, schema: String): DatabaseConnection
+  def openConnection(schemaName: String,
+                     host: String,
+                     port: Int,
+                     userName: String,
+                     pwd: String,
+                     schema: String,
+                     createDatabaseStatement: String): DatabaseConnection
 }
 
 trait DatabaseConnection extends Closeable {

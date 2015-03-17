@@ -18,6 +18,7 @@ object DatabaseMigrator {
     val db = databases(config.getString("database_kind"))
     val schemaLogicName = config.getString("schema_name")
     val nameProvider = getClass.getClassLoader.loadClass(config.getString("name_provider_class")).asInstanceOf[DatabaseNameProvider]
+    val name = nameProvider.computeDatabaseName(schemaLogicName, args.namespace)
 
     val connection = db.openConnection(
       schemaLogicName,
@@ -25,7 +26,8 @@ object DatabaseMigrator {
       config.getInt("port"),
       config.getString("username"),
       config.getString("password"),
-      nameProvider.computeDatabaseName(schemaLogicName, args.namespace)
+      name,
+      config.getString("create_database_statement").replace("@@DATABASE_NAME@@", name)
     )
     try {
       migrate(connection, args.version)
