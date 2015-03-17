@@ -2,11 +2,22 @@ package com.mnubo.dbschemas
 
 import java.io.{FileFilter, File}
 
+import com.typesafe.config.Config
+
 import scala.io.Source
 
 object DatabaseMigrator {
-  def migrate(db: Database, schemaName: String, host: String, port: Int, userName: String, pwd: String, schema: String, targetVersion: Option[String]): Unit = {
-    val connection = db.openConnection(schemaName, host, port, userName, pwd, schema)
+  def migrate(db: Database, config: Config, schema: String, targetVersion: Option[String]): Unit = {
+    require(config != null, "config must not be null")
+
+    val connection = db.openConnection(
+      config.getString("schema_name"),
+      config.getString("host"),
+      config.getInt("port"),
+      config.getString("username"),
+      config.getString("password"),
+      schema
+    )
     try {
       migrate(connection, targetVersion)
     }

@@ -25,10 +25,28 @@ Create a git repo with the following structure:
                /0002/
                /0003/
 
-The `db.conf` should contain which database the schema is for. See "Supported databases" for valid values. You must also specify a logical name. Example:
+The `db.conf` should contain which database the schema is for. See "Supported databases" for valid values. You must also specify a logical name. Finally, specify all the host/port/username/password for all the environment. Example:
 
     database_kind = cassandra
     schema_name = reverse_geo
+
+    workstation {
+      host = "localhost"
+    }
+    dev {
+      host = "atca-mnu1-s06.mtl.mnubo.com,atca-mnu1-s09.mtl.mnubo.com,atca-mnu1-s13.mtl.mnubo.com"
+    }
+    qa {
+      host = "<the qa host>"
+    }
+    preprod {
+      host = "<the preprod host>"
+    }
+    prod {
+      host = "<the prod host>"
+    }
+
+Note: in the case of Cassandra, there is no `port`, `username`, nor `password` settings, but for other databases kind like MySQL, you will need to provide those as well.
 
 The `build.sbt` file should activate the `dbschemas` SBT plugin that will take care of everything:
 
@@ -91,10 +109,10 @@ The target schema/database/keyspace must already exist. dbschemas do not support
 
 Command line:
 
-    docker run -it --rm docker.mnubo.com/<schema_name>:latest <hosts> <port> <username> <pwd> <schema/database/keyspace> [<version>]"
+    docker run -it --rm -e ENV=<environment name> docker.mnubo.com/<schema_name>:latest <schema/database/keyspace> [<version>]"
 
-Some of those arguments might not be necessary for some kind of databases. For example, `<port>`, `<username>`, and `<pwd>` are ignored by the Cassandra database. Just pass '0' in that case. Ex:
+Ex:
 
-    docker run -it --rm docker.mnubo.com/reverse_geo:latest atca-mnu1-s06.mtl.mnubo.com,atca-mnu1-s09.mtl.mnubo.com,atca-mnu1-s13.mtl.mnubo.com 0 0 0 mnuboglobalconfig"
+    docker run -it --rm -e ENV=dev docker.mnubo.com/reverse_geo:latest mnuboglobalconfig"
 
 Version is the version you want to upgrade / downgrade to. If ommited, the database will be upgraded to the latest version.

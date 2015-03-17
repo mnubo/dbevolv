@@ -9,7 +9,7 @@ lazy val tool = (project in file("tool"))
     name := "dbschemas",
     libraryDependencies ++= Seq(
       "com.datastax.cassandra"  %  "cassandra-driver-core"  % "2.1.4",
-      "com.typesafe"            %  "config"                 % "1.2.1"
+      "com.mnubo"               %  "app-util"               % "[1.0.0,)"
     )
   )
 
