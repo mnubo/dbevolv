@@ -2,13 +2,37 @@ package com.mnubo.dbschemas
 
 import java.io.{FileFilter, File}
 
+import com.typesafe.config.Config
+
 import scala.io.Source
 
 object DatabaseMigrator {
-  def migrate(db: Database, schemaName: String, host: String, port: Int, userName: String, pwd: String, schema: String, targetVersion: Option[String]): Unit = {
-    val connection = db.openConnection(schemaName, host, port, userName, pwd, schema)
+  private val databases =
+    List(CassandraDatabase)
+      .map(db => db.name -> db)
+      .toMap
+
+  def migrate(args: DbSchemasConfig, config: Config): Unit = {
+    require(config != null, "config must not be null")
+
+    val db = databases(config.getString("database_kind"))
+    val schemaLogicName = config.getString("schema_name")
+    val nameProvider = getClass.getClassLoader.loadClass(config.getString("name_provider_class")).asInstanceOf[DatabaseNameProvider]
+    val name = nameProvider.computeDatabaseName(schemaLogicName, args.namespace)
+
+    val connection = db.openConnection(
+      schemaLogicName,
+      config.getString("host"),
+      config.getInt("port"),
+      config.getString("username"),
+      config.getString("password"),
+      name,
+      config.getString("create_database_statement").replace("@@DATABASE_NAME@@", name)
+    )
     try {
-      migrate(connection, targetVersion)
+      if (args.drop)
+        connection.dropDatabase
+      migrate(connection, args.version)
     }
     finally {
       connection.close()
