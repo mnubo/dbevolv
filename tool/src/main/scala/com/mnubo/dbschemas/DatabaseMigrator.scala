@@ -7,19 +7,28 @@ import com.typesafe.config.Config
 import scala.io.Source
 
 object DatabaseMigrator {
-  def migrate(db: Database, config: Config, schema: String, targetVersion: Option[String]): Unit = {
+  private val databases =
+    List(CassandraDatabase)
+      .map(db => db.name -> db)
+      .toMap
+
+  def migrate(args: DbSchemasConfig, config: Config): Unit = {
     require(config != null, "config must not be null")
 
+    val db = databases(config.getString("database_kind"))
+    val schemaLogicName = config.getString("schema_name")
+    val nameProvider = getClass.getClassLoader.loadClass(config.getString("name_provider_class")).asInstanceOf[DatabaseNameProvider]
+
     val connection = db.openConnection(
-      config.getString("schema_name"),
+      schemaLogicName,
       config.getString("host"),
       config.getInt("port"),
       config.getString("username"),
       config.getString("password"),
-      schema
+      nameProvider.computeDatabaseName(schemaLogicName, args.namespace)
     )
     try {
-      migrate(connection, targetVersion)
+      migrate(connection, args.version)
     }
     finally {
       connection.close()

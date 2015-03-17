@@ -77,6 +77,9 @@ The upgrade file should contain what it takes to upgrade a given database to the
 
 Each statement can be laid out on multiple lines, and be terminated by a ';' character. Lines starting with a '#' character will be considered as comments and will be ignored. Empty lines are ignored.
 
+Building more complex upgrade / downgrade scripts
+-------------------------------------------------
+
 If you need complex logic, you can create a custom Java / Scala class and reference it as if it was a statement, with the '@@' keyword at the begining of the line. Example:
 
     CREATE TABLE .... ;
@@ -97,6 +100,37 @@ Note: you can also use this trick in downgrade scripts.
 
 If your custom script needs additional dependencies, you can add them in a `build.sbt` file through the libraryDependencies SBT key. See [SBT documentation](http://www.scala-sbt.org/0.13/docs/Library-Management.html)
 
+Computing the database name / schema name / index name / keyspace (depending on underlying db kind)
+---------------------------------------------------------------------------------------------------
+
+The actual database / keyspace name will be computed the following way:
+
+* **for global databases**: the logical schema_name will be used.
+    * Ex: reverse_geo
+* **for databases per customer**: the name will be suffixed with the customer's namespace.
+    * Ex: ingestion_connectedevice
+
+Sometimes, this is not suitable. For example, QA keyspace names might be totally custom. Or historical keyspaces might be jammed together. For all these use cases, you can customize the keyspace name provider. For example:
+
+    package com.mnubo.ingestion
+
+    class LegacyDatabaseNameProvider extends DatabaseNameProvider {
+      private val default = new DefaultDatabaseNameProvider
+
+      def computeDatabaseName(schemaLogicalName: String, namespace: Option[String]) = namespace match {
+        case Some(ns) if ns == "connectedevice" => ns
+        case Some(ns) if ns == "vanhawks" => ns
+        case _ => default.computeDatabaseName(schemaLogicalName, namespace)
+      }
+    }
+
+And then, in your `db.conf` file, you need to override the default database name provider in the relevant environments:
+
+    prod {
+      host = "<the prod host>"
+      name_provider_class = "com.mnubo.ingestion.LegacyDatabaseNameProvider"
+    }
+
 Example
 -------
 
@@ -107,12 +141,23 @@ Upgrading / downgrading a database
 
 The target schema/database/keyspace must already exist. dbschemas do not support the creation of the database itself.
 
-Command line:
+To get usage:
 
-    docker run -it --rm -e ENV=<environment name> docker.mnubo.com/<schema_name>:latest <schema/database/keyspace> [<version>]"
+    docker run -it --rm -e ENV=<environment name> docker.mnubo.com/<schema_name>:latest --help"
 
-Ex:
+This should result to something like:
 
-    docker run -it --rm -e ENV=dev docker.mnubo.com/reverse_geo:latest mnuboglobalconfig"
+    Upgrades / downgrades the reverse_geo database.
+    Usage: docker run -it --rm -e ENV=<environment name> dockerep-0.mtl.mnubo.com/reverse_geo:latest [options]
 
-Version is the version you want to upgrade / downgrade to. If ommited, the database will be upgraded to the latest version.
+      -n <value> | --namespace <value>
+            If your database needs a different instance per namespace, the namespace your are targeting.
+      -v <value> | --version <value>
+            The version you want to upgrade / downgrade to. If not specified, will upagrade to latest version.
+      --drop
+            [DANGEROUS] Whether you want to first drop the database before migrating to the given version. WARNING! You will loose all your data, don't use this option in production!
+      --help
+            Display this schema manager usage.
+    Example:
+      docker run -it --rm -e ENV=dev dockerep-0.mtl.mnubo.com/reverse_geo:latest --version 0004
+
