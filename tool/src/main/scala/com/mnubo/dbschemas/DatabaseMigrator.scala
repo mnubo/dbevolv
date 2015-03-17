@@ -30,6 +30,8 @@ object DatabaseMigrator {
       config.getString("create_database_statement").replace("@@DATABASE_NAME@@", name)
     )
     try {
+      if (args.drop)
+        connection.dropDatabase
       migrate(connection, args.version)
     }
     finally {

@@ -14,6 +14,8 @@ trait Database {
 }
 
 trait DatabaseConnection extends Closeable {
+  /** For tests, or QA, we might want to recreate a database instance from scratch. Implementors should know how to properly clean an existing database. */
+  def dropDatabase: Unit
   def execute(smt: String): Unit
   /** Get the concrete connection this DatabaseConnection is wrapping. Ex: the com.datastax.driver.core.Session. **/
   def innerConnection: AnyRef

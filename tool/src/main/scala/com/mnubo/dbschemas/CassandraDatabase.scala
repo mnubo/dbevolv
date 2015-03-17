@@ -30,6 +30,22 @@ class CassandraConnection(schemaName: String, hosts: String, keyspace: String, c
   override def innerConnection: AnyRef =
     session
 
+  /** For tests, or QA, we might want to recreate a database instance from scratch. Implementors should know how to properly clean an existing database. */
+  override def dropDatabase = {
+    cluster
+      .getMetadata
+      .getKeyspace(keyspace)
+      .getTables.asScala
+      .map(_.getName)
+      .foreach(tbl => execute("TRUNCATE " + tbl))
+
+    execute("DROP KEYSPACE " + keyspace)
+
+    execute(createDatabaseStatement)
+
+    execute("USE " + keyspace)
+  }
+
   override def getInstalledMigrationVersions: Set[String] = {
     ensureVersionTable()
 
@@ -78,4 +94,5 @@ class CassandraConnection(schemaName: String, hosts: String, keyspace: String, c
       case NonFatal(_) =>
         false
     }
+
 }
