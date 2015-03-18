@@ -12,11 +12,15 @@ object CassandraDatabase extends Database {
   val name = "cassandra"
 
   override def openConnection(schemaName: String, hosts: String, port: Int, userName: String, pwd: String, keyspace: String, createDatabaseStatement: String): DatabaseConnection =
-    new CassandraConnection(schemaName, hosts, keyspace, createDatabaseStatement)
+    new CassandraConnection(schemaName, hosts, if (port > 0) port else 9042, keyspace, createDatabaseStatement)
 }
 
-class CassandraConnection(schemaName: String, hosts: String, keyspace: String, createDatabaseStatement: String) extends DatabaseConnection {
-  private val cluster = Cluster.builder().addContactPoints(hosts.split(","): _*).build()
+class CassandraConnection(schemaName: String, hosts: String, port: Int, keyspace: String, createDatabaseStatement: String) extends DatabaseConnection {
+  private val cluster = Cluster
+    .builder()
+    .addContactPoints(hosts.split(","): _*)
+    .withPort(port)
+    .build()
   private val session = cluster.connect()
   private val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'")
 
