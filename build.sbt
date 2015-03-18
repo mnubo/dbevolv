@@ -22,7 +22,7 @@ lazy val plugin = (project in file("plugin"))
     libraryDependencies ++= Seq(
       "com.typesafe"            %  "config"                 % "1.2.1"
     ),
-    addSbtPlugin("com.typesafe.sbt" % "sbt-native-packager" % "1.0.0-RC1"),
+    addSbtPlugin("se.marcuslonnberg" % "sbt-docker" % "1.0.0"),
     addSbtPlugin("com.eed3si9n" % "sbt-assembly" % "0.13.0"),
     addSbtPlugin("com.github.gseitz" % "sbt-release" % "0.8.5"),
     // Put the version of the plugin in the resources, so that the plugin has access to it from the code

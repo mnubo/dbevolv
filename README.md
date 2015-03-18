@@ -156,7 +156,7 @@ The target schema/database/keyspace must already exist. dbschemas do not support
 
 To get usage:
 
-    docker run -it --rm -e ENV=<environment name> docker.mnubo.com/<schema_name>:latest --help"
+    docker run -it --rm -e ENV=<environment name> docker.mnubo.com/<schema_name>:latest --help
 
 This should result to something like:
 

@@ -11,7 +11,7 @@ object DbSchemas extends App {
   val parser = new scopt.OptionParser[DbSchemasConfig](s"docker run -it --rm -e ENV=<environment name> dockerep-0.mtl.mnubo.com/$schemaName:latest") {
     head(s"Upgrades / downgrades the $schemaName database.")
     opt[String]('n', "namespace") action { (x, c) =>
-      c.copy(namespace = Some(x)) } text("If your database needs a different instance per namespace, the namespace your are targeting.")
+      c.copy(namespace = Some(x)) } text("If your database needs a different instance per namespace, the namespace you are targeting.")
     opt[String]('v', "version") action { (x, c) =>
       c.copy(version = Some(x)) } text("The version you want to upgrade / downgrade to. If not specified, will upagrade to latest version.")
     opt[Unit]("drop") action { (_, c) =>
