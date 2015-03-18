@@ -11,6 +11,14 @@ trait Database {
                      pwd: String,
                      schema: String,
                      createDatabaseStatement: String): DatabaseConnection
+  def testDockerBaseImage: DatabaseDockerImage
+}
+
+object Database {
+  val databases =
+    List(CassandraDatabase)
+      .map(db => db.name -> db)
+      .toMap
 }
 
 trait DatabaseConnection extends Closeable {
@@ -23,3 +31,5 @@ trait DatabaseConnection extends Closeable {
   def markMigrationAsInstalled(migrationVersion: String)
   def markMigrationAsUninstalled(migrationVersion: String)
 }
+
+case class DatabaseDockerImage(name: String, mappedPort: Int, username: String, password: String)

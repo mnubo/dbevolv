@@ -60,7 +60,7 @@ object DbSchemasPlugin extends AutoPlugin {
       )
     ),
     // Auto increment the version every time we run the build in Jenkins by using the sbt-release plugin.
-    publishArtifactsAction                := (dockerBuildAndPush).value,
+    publishArtifactsAction                := dockerBuildAndPush.value,
     releaseVersion                        := identity, // The current version is already the good one
     nextVersion                           := { (ver: String) => sbtrelease.Version(ver).map(_.bumpBugfix.string).getOrElse(versionFormatError) }, // Don't 'snapshot' the version
     // Don't need to commit the release version, since it is already the good one.

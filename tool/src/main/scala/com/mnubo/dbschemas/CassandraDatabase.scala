@@ -13,6 +13,9 @@ object CassandraDatabase extends Database {
 
   override def openConnection(schemaName: String, hosts: String, port: Int, userName: String, pwd: String, keyspace: String, createDatabaseStatement: String): DatabaseConnection =
     new CassandraConnection(schemaName, hosts, if (port > 0) port else 9042, keyspace, createDatabaseStatement)
+
+  override def testDockerBaseImage =
+    DatabaseDockerImage("spotify/cassandra", 9042, "", "")
 }
 
 class CassandraConnection(schemaName: String, hosts: String, port: Int, keyspace: String, createDatabaseStatement: String) extends DatabaseConnection {
