@@ -2,13 +2,13 @@ package com.mnubo.dbschemas
 
 import java.io.File
 
-import com.mnubo.app_util.MnuboConfiguration
 import com.typesafe.config.ConfigFactory
 
 object DbSchemas extends App {
-  val dbConfig = ConfigFactory.defaultOverrides().withFallback(ConfigFactory.parseFile(new File("db.conf")))
-  val schemaName = dbConfig.getString("schema_name")
-  val parser = new scopt.OptionParser[DbSchemasConfig](s"docker run -it --rm -e ENV=<environment name> dockerep-0.mtl.mnubo.com/$schemaName:latest") {
+  private val config = ConfigFactory.defaultOverrides().withFallback(ConfigFactory.parseFile(new File("db.conf")))
+  private val schemaName = config.getString("schema_name")
+
+  val parser = new scopt.OptionParser[DbSchemasArgsConfig](s"docker run -it --rm -e ENV=<environment name> dockerep-0.mtl.mnubo.com/$schemaName:latest") {
     head(s"Upgrades / downgrades the $schemaName database.")
     opt[String]('n', "namespace") action { (x, c) =>
       c.copy(namespace = Some(x)) } text("If your database needs a different instance per namespace, the namespace you are targeting.")
@@ -21,10 +21,38 @@ object DbSchemas extends App {
     note(s"  docker run -it --rm -e ENV=dev dockerep-0.mtl.mnubo.com/$schemaName:latest --version=0004")
   }
 
-  parser.parse(args, DbSchemasConfig()).foreach { argConfig =>
-    DatabaseMigrator.migrate(argConfig, MnuboConfiguration.loadConfig(dbConfig))
+  parser.parse(args, DbSchemasArgsConfig()).foreach { argConfig =>
+    DatabaseMigrator.migrate(buildConfig(argConfig))
+  }
+
+  def buildConfig(args: DbSchemasArgsConfig) = {
+    val nameProvider = getClass.getClassLoader.loadClass(config.getString("name_provider_class")).asInstanceOf[DatabaseNameProvider]
+    val name = nameProvider.computeDatabaseName(schemaName, args.namespace)
+
+    DbMigrationConfig(
+      Database.databases(config.getString("database_kind")),
+      schemaName,
+      config.getString("host"),
+      config.getInt("port"),
+      config.getString("username"),
+      config.getString("password"),
+      nameProvider.computeDatabaseName(schemaName, args.namespace),
+      config.getString("create_database_statement").replace("@@DATABASE_NAME@@", name),
+      args.drop,
+      args.version
+    )
   }
 }
 
-case class DbSchemasConfig(drop: Boolean = false, namespace: Option[String] = None, version: Option[String] = None)
+case class DbSchemasArgsConfig(drop: Boolean = false, namespace: Option[String] = None, version: Option[String] = None)
 
+case class DbMigrationConfig(db: Database,
+                             schemaName: String,
+                             host: String,
+                             port: Int,
+                             username: String,
+                             password: String,
+                             name: String,
+                             createDatabaseStatement: String,
+                             drop: Boolean,
+                             version: Option[String])

@@ -2,37 +2,27 @@ package com.mnubo.dbschemas
 
 import java.io.{FileFilter, File}
 
-import com.typesafe.config.Config
+import com.mnubo.app_util.Logging
 
 import scala.io.Source
 
-object DatabaseMigrator {
-  private val databases =
-    List(CassandraDatabase)
-      .map(db => db.name -> db)
-      .toMap
-
-  def migrate(args: DbSchemasConfig, config: Config): Unit = {
-    require(config != null, "config must not be null")
-
-    val db = databases(config.getString("database_kind"))
-    val schemaLogicName = config.getString("schema_name")
-    val nameProvider = getClass.getClassLoader.loadClass(config.getString("name_provider_class")).asInstanceOf[DatabaseNameProvider]
-    val name = nameProvider.computeDatabaseName(schemaLogicName, args.namespace)
+object DatabaseMigrator extends Logging {
+  def migrate(config: DbMigrationConfig): Unit = {
+    import config._
 
     val connection = db.openConnection(
-      schemaLogicName,
-      config.getString("host"),
-      config.getInt("port"),
-      config.getString("username"),
-      config.getString("password"),
+      schemaName,
+      host,
+      port,
+      username,
+      password,
       name,
-      config.getString("create_database_statement").replace("@@DATABASE_NAME@@", name)
+      createDatabaseStatement
     )
     try {
-      if (args.drop)
+      if (drop)
         connection.dropDatabase
-      migrate(connection, args.version)
+      migrate(connection, version)
     }
     finally {
       connection.close()
@@ -59,9 +49,9 @@ object DatabaseMigrator {
         ._2
 
     if (currentIndex > targetIndex)
-      downgrade(connection, availableMigrations.slice(targetIndex + 1, currentIndex).reverse)
+      downgrade(connection, availableMigrations.slice(targetIndex + 1, currentIndex + 1).reverse)
     else if (currentIndex < targetIndex)
-      upgrade(connection, availableMigrations.slice(currentIndex + 1, targetIndex))
+      upgrade(connection, availableMigrations.slice(currentIndex + 1, targetIndex + 1))
     else
       () // Nothing to do, already at the right target version
   }
@@ -72,6 +62,7 @@ object DatabaseMigrator {
       stmtFile = findStatementFile(step, "upgrade.")
       stmts = getStatements(stmtFile)
     } {
+      logInfo(s"Executing upgrade $step")
       stmts.foreach(_.execute(connection))
       connection.markMigrationAsInstalled(step)
     }
