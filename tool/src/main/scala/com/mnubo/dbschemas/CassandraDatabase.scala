@@ -16,6 +16,9 @@ object CassandraDatabase extends Database {
 
   override def testDockerBaseImage =
     DatabaseDockerImage("spotify/cassandra", 9042, "", "")
+
+  override def isStarted(log: String) =
+    log.contains("Listening for thrift clients...")
 }
 
 class CassandraConnection(schemaName: String, hosts: String, port: Int, keyspace: String, createDatabaseStatement: String) extends DatabaseConnection {

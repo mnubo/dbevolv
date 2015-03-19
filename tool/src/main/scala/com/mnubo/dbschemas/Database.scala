@@ -12,6 +12,7 @@ trait Database {
                      schema: String,
                      createDatabaseStatement: String): DatabaseConnection
   def testDockerBaseImage: DatabaseDockerImage
+  def isStarted(log: String): Boolean
 }
 
 object Database {

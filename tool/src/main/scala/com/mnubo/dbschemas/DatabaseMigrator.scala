@@ -2,9 +2,11 @@ package com.mnubo.dbschemas
 
 import java.io.{FileFilter, File}
 
+import com.mnubo.app_util.Logging
+
 import scala.io.Source
 
-object DatabaseMigrator {
+object DatabaseMigrator extends Logging {
   def migrate(config: DbMigrationConfig): Unit = {
     import config._
 
@@ -47,9 +49,9 @@ object DatabaseMigrator {
         ._2
 
     if (currentIndex > targetIndex)
-      downgrade(connection, availableMigrations.slice(targetIndex + 1, currentIndex).reverse)
+      downgrade(connection, availableMigrations.slice(targetIndex + 1, currentIndex + 1).reverse)
     else if (currentIndex < targetIndex)
-      upgrade(connection, availableMigrations.slice(currentIndex + 1, targetIndex))
+      upgrade(connection, availableMigrations.slice(currentIndex + 1, targetIndex + 1))
     else
       () // Nothing to do, already at the right target version
   }
@@ -60,6 +62,7 @@ object DatabaseMigrator {
       stmtFile = findStatementFile(step, "upgrade.")
       stmts = getStatements(stmtFile)
     } {
+      logInfo(s"Executing upgrade $step")
       stmts.foreach(_.execute(connection))
       connection.markMigrationAsInstalled(step)
     }
