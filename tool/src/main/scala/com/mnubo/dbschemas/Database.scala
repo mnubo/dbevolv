@@ -15,13 +15,6 @@ trait Database {
   def isStarted(log: String): Boolean
 }
 
-object Database {
-  val databases =
-    List(CassandraDatabase)
-      .map(db => db.name -> db)
-      .toMap
-}
-
 trait DatabaseConnection extends Closeable {
   /** For tests, or QA, we might want to recreate a database instance from scratch. Implementors should know how to properly clean an existing database. */
   def dropDatabase: Unit
@@ -34,3 +27,10 @@ trait DatabaseConnection extends Closeable {
 }
 
 case class DatabaseDockerImage(name: String, mappedPort: Int, username: String, password: String)
+
+object Database {
+  val databases =
+    List(CassandraDatabase)
+      .map(db => db.name -> db)
+      .toMap
+}

@@ -33,6 +33,7 @@ lazy val plugin = (project in file("plugin"))
       Seq(file)
     }
   )
+  .dependsOn(tool)
 
 
 

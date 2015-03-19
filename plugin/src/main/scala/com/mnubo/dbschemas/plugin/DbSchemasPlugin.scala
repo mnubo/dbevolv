@@ -1,13 +1,14 @@
-package com.mnubo.dbschemas
+package com.mnubo.dbschemas.plugin
 
+import com.mnubo.dbschemas.TestDatabaseBuilder
 import com.typesafe.config.ConfigFactory
 import sbt.Keys._
 import sbt._
 import sbtassembly.AssemblyPlugin
 import sbtassembly.AssemblyPlugin.autoImport._
-import sbtdocker.{ImageName, DockerPlugin}
-import sbtdocker.immutable.Dockerfile
 import sbtdocker.DockerKeys._
+import sbtdocker.immutable.Dockerfile
+import sbtdocker.{DockerPlugin, ImageName}
 import sbtrelease.ReleasePlugin.ReleaseKeys._
 import sbtrelease.ReleasePlugin._
 import sbtrelease.ReleaseStateTransformations._
@@ -26,6 +27,12 @@ object DbSchemasPlugin extends AutoPlugin {
 
   override def requires = DockerPlugin && AssemblyPlugin
 
+  object autoImport {
+    val buildTestContainer = taskKey[Unit]("Build test database container")
+  }
+
+  import autoImport._
+
   override lazy val projectSettings: Seq[Setting[_]] = releaseSettings ++ Seq(
     // Avoid the user to give a name to the SBT project: use the schema name defined in the config.
     name                                  := schemaName,
@@ -38,6 +45,8 @@ object DbSchemasPlugin extends AutoPlugin {
     libraryDependencies                   += "com.mnubo" %% "dbschemas" % dbschemasVersion,
     // Give the fat jar a simple name
     assemblyJarName                       := s"$schemaName-schema-manager.jar",
+    buildTestContainer                    := TestDatabaseBuilder.build(version.value),
+    dockerBuildAndPush                    <<= (dockerBuildAndPush dependsOn buildTestContainer),
     dockerfile in docker                  := {
       val artifact = (assembly in assembly).value
       val artifactTargetPath = s"/app/${artifact.name}"

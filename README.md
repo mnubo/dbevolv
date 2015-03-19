@@ -144,8 +144,8 @@ And then, in your `db.conf` file, you need to override the default database name
       name_provider_class = "com.mnubo.ingestion.LegacyDatabaseNameProvider"
     }
 
-Example
--------
+Project example
+---------------
 
 [cassandra-reverse-geocoding](http://git-lab1.mtl.mnubo.com/mnubo/cassandra-reverse-geocoder/tree/master)
 
@@ -156,7 +156,7 @@ The target schema/database/keyspace must already exist. dbschemas do not support
 
 To get usage:
 
-    docker run -it --rm -e ENV=<environment name> docker.mnubo.com/<schema_name>:latest --help
+    docker run -it --rm -e ENV=<environment name> dockerep-0.mtl.mnubo.com/<schema_name>:latest --help
 
 This should result to something like:
 
@@ -173,4 +173,18 @@ This should result to something like:
             Display this schema manager usage.
     Example:
       docker run -it --rm -e ENV=dev dockerep-0.mtl.mnubo.com/reverse_geo:latest --version 0004
+
+Using a test instance in automated tests
+----------------------------------------
+
+Each time a new migration is pushed to Gitlab, Jenkins will generate a test database instance with all the tables up to date. To start it:
+
+    docker run -dt -p <database kind standard port>:<desired_port> dockerep-0.mtl.mnubo.com/test_<schema_name>:latest
+
+For example, with the Cassandra reverse_geo database:
+
+    docker run -dt -p 9042:40155 dockerep-0.mtl.mnubo.com/test_reverse_geo:latest
+
+This will start a Cassandra instance, with a `reverse_geo` keyspace containing all the reverse_geo tables up to date. You can point your tests to use the 40155 port on the DOCKER_HOST in order to create a session.
+
 
