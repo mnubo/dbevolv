@@ -64,8 +64,13 @@ object DbSchemasPlugin extends AutoPlugin {
     imageNames in docker := Seq(
       ImageName(
         namespace = Some("dockerep-0.mtl.mnubo.com"),
-        repository = name.value,
+        repository = name.value + "-mgr",
         tag = Some(version.value)
+      ),
+      ImageName(
+        namespace = Some("dockerep-0.mtl.mnubo.com"),
+        repository = name.value + "-mgr",
+        tag = Some("latest")
       )
     ),
     // Auto increment the version every time we run the build in Jenkins by using the sbt-release plugin.
