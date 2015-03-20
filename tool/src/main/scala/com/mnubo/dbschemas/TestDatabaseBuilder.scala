@@ -14,7 +14,7 @@ object TestDatabaseBuilder extends Logging {
     val dbKind = config.getString("database_kind")
     val db = Database.databases(dbKind)
     val schemaName = config.getString("schema_name")
-    val imageName = s"test_$schemaName"
+    val imageName = s"test-$schemaName"
     val repositoryName = s"$MnuboDockerRegistry/$imageName"
 
     logInfo(s"Starting a fresh test $dbKind $schemaName instance...")
@@ -49,8 +49,4 @@ object TestDatabaseBuilder extends Logging {
     Docker.remove(container.id)
     Docker.removeImage(imageId)
   }
-}
-
-object BuildTestDb extends App {
-  TestDatabaseBuilder.build(args(0))
 }

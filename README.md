@@ -156,12 +156,12 @@ The target schema/database/keyspace must already exist. dbschemas do not support
 
 To get usage:
 
-    docker run -it --rm -e ENV=<environment name> dockerep-0.mtl.mnubo.com/<schema_name>:latest --help
+    docker run -it --rm -e ENV=<environment name> dockerep-0.mtl.mnubo.com/<schema_name>-mgr:latest --help
 
 This should result to something like:
 
     Upgrades / downgrades the reverse_geo database.
-    Usage: docker run -it --rm -e ENV=<environment name> dockerep-0.mtl.mnubo.com/reverse_geo:latest [options]
+    Usage: docker run -it --rm -e ENV=<environment name> dockerep-0.mtl.mnubo.com/reverse_geo-mgr:latest [options]
 
       -n <value> | --namespace <value>
             If your database needs a different instance per namespace, the namespace your are targeting.
@@ -174,16 +174,29 @@ This should result to something like:
     Example:
       docker run -it --rm -e ENV=dev dockerep-0.mtl.mnubo.com/reverse_geo:latest --version 0004
 
+Inspecting the migrations inside a schema manager
+-------------------------------------------------
+
+    docker run -it --rm --entrypoint=/bin/bash dockerep-0.mtl.mnubo.com/<schema_name>-mgr:latest
+    ls -la /app/migrations
+
+Getting the list of already installed migrations in a database
+--------------------------------------------------------------
+
+Connect to the database and run:
+
+    SELECT * FROM <schema_name>_version;
+
 Using a test instance in automated tests
 ----------------------------------------
 
 Each time a new migration is pushed to Gitlab, Jenkins will generate a test database instance with all the tables up to date. To start it:
 
-    docker run -dt -p <database kind standard port>:<desired_port> dockerep-0.mtl.mnubo.com/test_<schema_name>:latest
+    docker run -dt -p <database kind standard port>:<desired_port> dockerep-0.mtl.mnubo.com/test-<schema_name>:latest
 
 For example, with the Cassandra reverse_geo database:
 
-    docker run -dt -p 9042:40155 dockerep-0.mtl.mnubo.com/test_reverse_geo:latest
+    docker run -dt -p 9042:40155 dockerep-0.mtl.mnubo.com/test-reverse_geo:latest
 
 This will start a Cassandra instance, with a `reverse_geo` keyspace containing all the reverse_geo tables up to date. You can point your tests to use the 40155 port on the DOCKER_HOST in order to create a session.
 
