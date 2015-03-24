@@ -2,6 +2,8 @@ package com.mnubo
 package dbschemas.migration
 
 import java.io.{PrintStream, FileInputStream, InputStreamReader, File}
+import java.text.SimpleDateFormat
+import java.util.Date
 
 import com.google.gson.{JsonObject, JsonElement, JsonParser}
 
@@ -13,6 +15,7 @@ object Boot extends App {
   val Enrichment = "enrichment"
   val Analytics = "analytics"
   val GlobalConfig = "mnuboglobalconfig"
+  val projects = List(Ingestion, Enrichment, Analytics, GlobalConfig)
   val TableSpec = """([a-z_\-0-9\.]+)"""
   val CreateTable1Regex = s"""(?i)create table if not exists $TableSpec .+""".r
   val CreateTable2Regex = s"""(?i)create table $TableSpec .+""".r
@@ -24,6 +27,8 @@ object Boot extends App {
   val DropTable2Regex = s"""(?i)drop table if exists $TableSpec;""".r
   val DropTable3Regex = s"""(?i)drop $TableSpec;""".r
   val DeleteRegex = s"""(?i)delete from $TableSpec .+""".r
+  val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'")
+  val now = df.format(new Date())
 
   val migrationLegacyFiles = new File("../mnubo-main/platform/schemamanager/app/src/main/resources/mnuboSchemas")
     .listFiles()
@@ -40,7 +45,7 @@ object Boot extends App {
     "analytics_objects_with_imported_attributes" -> Enrichment
   ).withDefaultValue(Ingestion)
 
-  migrationLegacyFiles.foreach { migrationFile =>
+  val versions = migrationLegacyFiles.map { migrationFile =>
     val json = using(new InputStreamReader(new FileInputStream(migrationFile)))(parser.parse)
     val upgradeScript = getScript(json.getAsJsonObject, "UpgradeDelta")
     val downgradeScript = getScript(json.getAsJsonObject, "DowngradeDelta")
@@ -64,8 +69,10 @@ object Boot extends App {
     splitInProjects(upgradeScript, _ addUpgrade _)
     splitInProjects(downgradeScript, _ addDowngrade _)
 
-    val version = migrationFile.getName.replace("_MnuboSchema.json", "")
+    val version = migrationFile.getName.replace("_MnuboSchema.json", "").replace(".", "_")
     println("Version " + version)
+
+
     schemaScripts
       .filterNot(_._2.isEmpty)
       .foreach { case (name, s) =>
@@ -79,7 +86,36 @@ object Boot extends App {
         }
       }
 
+    version
   }
+
+  def cql(template: String => String) =
+    projects.map(p => s"${template(if (p == GlobalConfig) s"mnuboglobalconfig.$p" else p)}").mkString(",\n      ")
+
+  def inserts(projectName: String) =
+    versions.map(v => s""""INSERT INTO ${projectName}_version (migration_version, migration_date) VALUES ('$v', '$now')"""").mkString(",\n      ")
+
+    using(new PrintStream("0.5.0.0_MnuboSchema.json")) { p =>
+      p.println(
+        s"""{
+           |  "UpgradeDelta": {
+           |    "Tables": [
+           |      ${cql(p => s""""CREATE TABLE ${p}_version (migration_version TEXT, migration_date TIMESTAMP, PRIMARY KEY (migration_version))"""")}
+           |    ],
+           |    "Records": [
+           |      ${cql(inserts)}
+           |    ]
+           |  },
+           |  "DowngradeDelta": {
+           |    "Tables": [
+           |      ${cql(p => s""""TRUNCATE ${p}_version"""")},
+           |      ${cql(p => s""""DROP TABLE IF EXISTS ${p}_version"""")},
+           |    ]
+           |  }
+           |}
+           |""".stripMargin)
+    }
+
 
   def parseTableName(cmd: String) = cmd match {
     case CreateTable1Regex(table) => table
