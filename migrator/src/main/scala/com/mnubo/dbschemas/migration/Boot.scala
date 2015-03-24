@@ -42,6 +42,7 @@ object Boot extends App {
     "object_state" -> Analytics,
     "rta_numeric_results" -> Analytics,
     "rta_groupby_results" -> Analytics,
+    "rta_event_count_results" -> Analytics,
     "analytics_objects_with_imported_attributes" -> Enrichment
   ).withDefaultValue(Ingestion)
 
