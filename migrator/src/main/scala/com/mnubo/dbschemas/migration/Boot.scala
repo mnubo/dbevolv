@@ -6,6 +6,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 import com.google.gson.{JsonObject, JsonElement, JsonParser}
+import org.apache.commons.io.FileUtils
 
 import collection.JavaConverters._
 
@@ -82,40 +83,47 @@ object Boot extends App {
         if (args.isEmpty) {
           val projectname = s"cassandra-$name"
           val migrationPath = new File(s"../$projectname/migrations/$version")
-          if (!migrationPath.exists()) migrationPath.mkdirs()
+
+          if (migrationPath.exists())
+            FileUtils.deleteDirectory(migrationPath)
+
+          migrationPath.mkdirs()
+
           s.export(migrationPath)
         }
       }
 
-    version
+    Version(version, schemaScripts)
   }
 
   def cql(template: String => String) =
     projects.map(p => s"${template(if (p == GlobalConfig) s"mnuboglobalconfig.$p" else p)}").mkString(",\n      ")
 
   def inserts(projectName: String) =
-    versions.map(v => s""""INSERT INTO ${projectName}_version (migration_version, migration_date) VALUES ('$v', '$now')"""").mkString(",\n      ")
+    versions
+      .filterNot(_.scripts(projectName.split('.')(0)).isEmpty)
+      .map(v => s""""INSERT INTO ${projectName}_version (migration_version, migration_date) VALUES ('${v.version}', '$now')"""").mkString(",\n      ")
 
-    using(new PrintStream("0.5.0.0_MnuboSchema.json")) { p =>
-      p.println(
-        s"""{
-           |  "UpgradeDelta": {
-           |    "Tables": [
-           |      ${cql(p => s""""CREATE TABLE ${p}_version (migration_version TEXT, migration_date TIMESTAMP, PRIMARY KEY (migration_version))"""")}
-           |    ],
-           |    "Records": [
-           |      ${cql(inserts)}
-           |    ]
-           |  },
-           |  "DowngradeDelta": {
-           |    "Tables": [
-           |      ${cql(p => s""""TRUNCATE ${p}_version"""")},
-           |      ${cql(p => s""""DROP TABLE IF EXISTS ${p}_version"""")},
-           |    ]
-           |  }
-           |}
-           |""".stripMargin)
-    }
+  using(new PrintStream("0.5.0.0_MnuboSchema.json")) { p =>
+    p.println(
+      s"""{
+         |  "UpgradeDelta": {
+         |    "Tables": [
+         |      ${cql(p => s""""CREATE TABLE ${p}_version (migration_version TEXT, migration_date TIMESTAMP, PRIMARY KEY (migration_version))"""")}
+         |    ],
+         |    "Records": [
+         |      ${cql(inserts)}
+         |    ]
+         |  },
+         |  "DowngradeDelta": {
+         |    "Tables": [
+         |      ${cql(p => s""""TRUNCATE ${p}_version"""")},
+         |      ${cql(p => s""""DROP TABLE IF EXISTS ${p}_version"""")},
+         |    ]
+         |  }
+         |}
+         |""".stripMargin)
+  }
 
 
   def parseTableName(cmd: String) = cmd match {
@@ -180,3 +188,5 @@ case class Migration(upgrade: Seq[String] = Nil, downgrade: Seq[String] = Nil) {
       }
   }
 }
+
+case class Version(version: String, scripts: Map[String, Migration])
