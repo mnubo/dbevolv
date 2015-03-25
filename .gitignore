@@ -11,3 +11,4 @@ target/
 *.DS_Store
 tree_*.txt
 ttree_*.txt
+*_MnuboSchema.json

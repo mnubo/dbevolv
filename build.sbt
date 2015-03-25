@@ -15,6 +15,18 @@ lazy val tool = (project in file("tool"))
     )
   )
 
+lazy val migrator = (project in file("migrator"))
+  .enablePlugins(MnuboLibraryPlugin)
+  .settings(
+    name := "migrator",
+    publish := {}, // We don't want to publish this guy
+    libraryDependencies ++= Seq(
+      "com.mnubo"               %  "app-util"               % "[1.0.0,)",
+      "commons-io"              % "commons-io"              % "2.4",
+      "com.google.code.gson"    %  "gson"                   % "2.3.1"
+    )
+  )
+
 lazy val plugin = (project in file("plugin"))
   .enablePlugins(MnuboLibraryPlugin)
   .settings(
