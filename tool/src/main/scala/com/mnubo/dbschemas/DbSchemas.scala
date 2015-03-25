@@ -2,7 +2,7 @@ package com.mnubo.dbschemas
 
 import java.io.File
 
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{Config, ConfigFactory}
 
 object DbSchemas extends App {
   private val config = ConfigFactory.defaultOverrides().withFallback(ConfigFactory.parseFile(new File("db.conf")))
@@ -39,7 +39,8 @@ object DbSchemas extends App {
       nameProvider.computeDatabaseName(schemaName, args.namespace),
       config.getString("create_database_statement").replace("@@DATABASE_NAME@@", name),
       args.drop,
-      args.version
+      args.version,
+      config
     )
   }
 }
@@ -55,4 +56,5 @@ case class DbMigrationConfig(db: Database,
                              name: String,
                              createDatabaseStatement: String,
                              drop: Boolean,
-                             version: Option[String])
+                             version: Option[String],
+                             wholeConfig: Config)

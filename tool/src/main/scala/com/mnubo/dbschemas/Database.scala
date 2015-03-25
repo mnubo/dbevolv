@@ -2,6 +2,8 @@ package com.mnubo.dbschemas
 
 import java.io.Closeable
 
+import com.typesafe.config.Config
+
 trait Database {
   def name: String
   def openConnection(schemaName: String,
@@ -10,7 +12,8 @@ trait Database {
                      userName: String,
                      pwd: String,
                      schema: String,
-                     createDatabaseStatement: String): DatabaseConnection
+                     createDatabaseStatement: String,
+                     config: Config): DatabaseConnection
   def testDockerBaseImage: DatabaseDockerImage
   def isStarted(log: String): Boolean
 }
@@ -30,7 +33,7 @@ case class DatabaseDockerImage(name: String, mappedPort: Int, username: String, 
 
 object Database {
   val databases =
-    List(CassandraDatabase)
+    List(CassandraDatabase, ElasticsearchDatabase)
       .map(db => db.name -> db)
       .toMap
 }

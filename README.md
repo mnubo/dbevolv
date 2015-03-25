@@ -7,6 +7,7 @@ Supported databases
 -------------------
 
 * cassandra
+* elasticsearch
 
 Usage
 =====
@@ -58,6 +59,8 @@ Here are the different parameters you can configure:
 * **password**: the password to use to connect to the database instance. Certain kind of databases like Cassandra don't need that.
 * **create_database_statement**: The CQL / SQL / HQL statement to use if the database does not even exists when running the schema manager. The `@@DATABASE_NAME@@` place holder will automatically be replaced by the actual schema / keyspace name (see also "Computing the database name / schema name / index name / keyspace" below).
 * **name_provider_class**: See "Computing the database name / schema name / index name / keyspace" below.
+* **shard_number**: for Elasticsearch, how many shards the index should have.
+* **replica_number**: for Elasticsearch, in how many additional replicas each shard should be replicated (0 means no replication).
 
 Note: most of the settings can have a default value at the top, but can be overriden for a given environment. See for example `create_database_statement` in the above example.
 
@@ -71,7 +74,7 @@ The `version.sbt` file should contain the initial version of this particular sch
 
 The `build.properties` file should contain which SBT version to use:
 
-    sbt.version=0.13.7
+    sbt.version=0.13.8
 
 The `plugins.sbt` should point to this plugin on Artifactory:
 
@@ -99,12 +102,17 @@ If you need complex logic, you can create a custom Java / Scala class and refere
     # Some comment
     @@com.mnubo.platform_cassandra.UpgradeFields
 
-Your class should be located at the usual Maven/SBT location. In this example: src/main/scala/com/mnubo/platform_cassandra/UpgradeFields.java. It must have a constructor with no parameters, and an execute method taking a single parameter being the connection to the database. Exact type of the connection depends on the database type. Example:
+Your class should be located at the usual Maven/SBT location. In this example: src/main/scala/com/mnubo/platform_cassandra/UpgradeFields.java. It must have a constructor with no parameters, and an execute method taking a 2 parameters.
+
+   1) the connection to the database. Exact type of the connection depends on the database type.
+   2) the name of the database (postgres) / schema (mysql) / keyspace (cassandra) / index (elasticsearch)
+
+Example:
 
     package com.mnubo.platform_cassandra;
 
     public class UpgradeFields {
-        public void execute(com.datastax.driver.core.Session connection) {
+        public void execute(com.datastax.driver.core.Session connection, String dataseName) {
           // Your upgrade logic here
         }
     }
@@ -144,10 +152,11 @@ And then, in your `db.conf` file, you need to override the default database name
       name_provider_class = "com.mnubo.ingestion.LegacyDatabaseNameProvider"
     }
 
-Project example
----------------
+Project examples
+----------------
 
-[cassandra-reverse-geocoding](http://git-lab1.mtl.mnubo.com/mnubo/cassandra-reverse-geocoder/tree/master)
+* [cassandra-reverse-geocoding](http://git-lab1.mtl.mnubo.com/mnubo/cassandra-reverse-geocoder/tree/master)
+* [elasticsearch-analytics-basic-index](http://git-lab1.mtl.mnubo.com/mnubo/elasticsearch-analytics-basic-index/tree/master)
 
 Upgrading / downgrading a database
 ----------------------------------
