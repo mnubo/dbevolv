@@ -2,10 +2,11 @@ package com.mnubo.dbschemas
 
 import java.io.File
 
+import com.mnubo.app_util.MnuboConfiguration
 import com.typesafe.config.{Config, ConfigFactory}
 
 object DbSchemas extends App {
-  private val config = ConfigFactory.defaultOverrides().withFallback(ConfigFactory.parseFile(new File("db.conf")))
+  private val config = MnuboConfiguration.loadConfig(ConfigFactory.parseFile(new File("db.conf")).withFallback(ConfigFactory.load()))
   private val schemaName = config.getString("schema_name")
 
   val parser = new scopt.OptionParser[DbSchemasArgsConfig](s"docker run -it --rm -e ENV=<environment name> dockerep-0.mtl.mnubo.com/$schemaName:latest") {
@@ -26,7 +27,10 @@ object DbSchemas extends App {
   }
 
   def buildConfig(args: DbSchemasArgsConfig) = {
-    val nameProvider = getClass.getClassLoader.loadClass(config.getString("name_provider_class")).asInstanceOf[DatabaseNameProvider]
+    val nameProvider = getClass.getClassLoader
+      .loadClass(config.getString("name_provider_class"))
+      .newInstance()
+      .asInstanceOf[DatabaseNameProvider]
     val name = nameProvider.computeDatabaseName(schemaName, args.namespace)
 
     DbMigrationConfig(
