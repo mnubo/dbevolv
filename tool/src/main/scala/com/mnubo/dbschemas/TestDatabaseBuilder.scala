@@ -1,8 +1,9 @@
-package com.mnubo.dbschemas
+package com.mnubo
+package dbschemas
 
 import java.io.File
 
-import com.mnubo.app_util.Logging
+import com.mnubo.app_util.{MnuboConfiguration, Logging}
 import com.mnubo.dbschemas.docker.Docker
 import com.typesafe.config.ConfigFactory
 
@@ -10,12 +11,12 @@ object TestDatabaseBuilder extends Logging {
   private val MnuboDockerRegistry = "dockerep-0.mtl.mnubo.com"
 
   def build(schemaBuildVersion: String) = {
-    val config = ConfigFactory.defaultOverrides().withFallback(ConfigFactory.parseFile(new File("db.conf")))
+    val config = MnuboConfiguration.loadConfig(ConfigFactory.parseFile(new File("db.conf")).withFallback(ConfigFactory.load()), "workstation")
     val dbKind = config.getString("database_kind")
-    val db = Database.databases(dbKind)
     val schemaName = config.getString("schema_name")
     val imageName = s"test-$schemaName"
     val repositoryName = s"$MnuboDockerRegistry/$imageName"
+    val db = Database.databases(dbKind)
 
     logInfo(s"Starting a fresh test $dbKind $schemaName instance...")
     val container = Docker.run(
@@ -33,9 +34,10 @@ object TestDatabaseBuilder extends Logging {
       db.testDockerBaseImage.username,
       db.testDockerBaseImage.password,
       schemaName,
-      config.getString("workstation.create_database_statement").replace("@@DATABASE_NAME@@", schemaName),
+      config.getString("create_database_statement").replace("@@DATABASE_NAME@@", schemaName),
       false,
-      None
+      None,
+      config
     ))
 
     logInfo(s"Commiting $dbKind $schemaName test instance...")

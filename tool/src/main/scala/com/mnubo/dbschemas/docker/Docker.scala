@@ -28,9 +28,22 @@ object Docker extends Logging {
     val dbMainPort = ExposedPort.tcp(exposedPort)
     val hostPort = getAvailablePort
 
+    if (dockerImage.contains(":")) {
+      val Array(image, tag) = dockerImage.split(':')
+      dockerClient
+        .pullImageCmd(image)
+        .withTag(tag)
+        .exec()
+    }
+    else {
+      dockerClient
+        .pullImageCmd(dockerImage)
+        .exec()
+    }
     val container = dockerClient
       .createContainerCmd(dockerImage)
       .withExposedPorts(dbMainPort)
+      .withTty(true)
       .exec()
       .getId
 
@@ -74,6 +87,7 @@ object Docker extends Logging {
 
     dockerClient
       .tagImageCmd(imageId, repository, "latest")
+      .withForce(true)
       .exec()
 
     imageId

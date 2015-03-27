@@ -1,4 +1,5 @@
-package com.mnubo.dbschemas
+package com.mnubo
+package dbschemas
 
 import java.io.{FileFilter, File}
 
@@ -10,26 +11,22 @@ object DatabaseMigrator extends Logging {
   def migrate(config: DbMigrationConfig): Unit = {
     import config._
 
-    val connection = db.openConnection(
+    using(db.openConnection(
       schemaName,
       host,
       port,
       username,
       password,
       name,
-      createDatabaseStatement
-    )
-    try {
-      if (drop)
-        connection.dropDatabase
-      migrate(connection, version)
-    }
-    finally {
-      connection.close()
+      createDatabaseStatement,
+      wholeConfig
+    )) { connection =>
+      if (drop) connection.dropDatabase
+      migrate(connection, name, version)
     }
   }
 
-  private def migrate(connection: DatabaseConnection, targetVersion: Option[String]): Unit = {
+  private def migrate(connection: DatabaseConnection, name: String, targetVersion: Option[String]): Unit = {
     val availableMigrations = getAvailableMigrations
     val installedMigrations = connection.getInstalledMigrationVersions
     val target = targetVersion.getOrElse(availableMigrations.last)
@@ -49,32 +46,32 @@ object DatabaseMigrator extends Logging {
         ._2
 
     if (currentIndex > targetIndex)
-      downgrade(connection, availableMigrations.slice(targetIndex + 1, currentIndex + 1).reverse)
+      downgrade(connection, name, availableMigrations.slice(targetIndex + 1, currentIndex + 1).reverse)
     else if (currentIndex < targetIndex)
-      upgrade(connection, availableMigrations.slice(currentIndex + 1, targetIndex + 1))
+      upgrade(connection, name, availableMigrations.slice(currentIndex + 1, targetIndex + 1))
     else
       () // Nothing to do, already at the right target version
   }
 
-  private def upgrade(connection: DatabaseConnection, steps: Seq[String]) = {
+  private def upgrade(connection: DatabaseConnection, name: String, steps: Seq[String]) = {
     for {
       step <- steps
       stmtFile = findStatementFile(step, "upgrade.")
       stmts = getStatements(stmtFile)
     } {
       logInfo(s"Executing upgrade $step")
-      stmts.foreach(_.execute(connection))
+      stmts.foreach(_.execute(connection, name))
       connection.markMigrationAsInstalled(step)
     }
   }
 
-  private def downgrade(connection: DatabaseConnection, steps: Seq[String]) = {
+  private def downgrade(connection: DatabaseConnection, name: String, steps: Seq[String]) = {
     for {
       step <- steps
       stmtFile = findStatementFile(step, "downgrade.")
       stmts = getStatements(stmtFile)
     } {
-      stmts.foreach(_.execute(connection))
+      stmts.foreach(_.execute(connection, name))
       connection.markMigrationAsUninstalled(step)
     }
   }
@@ -112,11 +109,11 @@ object DatabaseMigrator extends Logging {
       .map(_.getName)
 
   private sealed trait Statement {
-    def execute(conn: DatabaseConnection)
+    def execute(conn: DatabaseConnection, databaseName: String)
   }
 
   private case class StringStatement(statementText: String) extends Statement {
-    override def execute(conn: DatabaseConnection) =
+    override def execute(conn: DatabaseConnection, databaseName: String) =
       conn.execute(statementText)
   }
 
@@ -125,7 +122,7 @@ object DatabaseMigrator extends Logging {
     private val scripInstance = c.newInstance()
     private val executeMethod = c.getMethods.find(_.getName == "execute").get
 
-    override def execute(conn: DatabaseConnection) =
-      executeMethod.invoke(scripInstance, conn.innerConnection)
+    override def execute(conn: DatabaseConnection, databaseName: String) =
+      executeMethod.invoke(scripInstance, conn.innerConnection, databaseName)
   }
 }

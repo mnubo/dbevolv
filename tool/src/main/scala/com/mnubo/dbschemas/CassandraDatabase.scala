@@ -4,6 +4,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 import com.datastax.driver.core.Cluster
+import com.typesafe.config.Config
 
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
@@ -11,7 +12,14 @@ import scala.util.control.NonFatal
 object CassandraDatabase extends Database {
   val name = "cassandra"
 
-  override def openConnection(schemaName: String, hosts: String, port: Int, userName: String, pwd: String, keyspace: String, createDatabaseStatement: String): DatabaseConnection =
+  override def openConnection(schemaName: String,
+                              hosts: String,
+                              port: Int,
+                              userName: String,
+                              pwd: String,
+                              keyspace: String,
+                              createDatabaseStatement: String,
+                              config: Config): DatabaseConnection =
     new CassandraConnection(schemaName, hosts, if (port > 0) port else 9042, keyspace, createDatabaseStatement)
 
   override def testDockerBaseImage =
@@ -28,7 +36,7 @@ class CassandraConnection(schemaName: String, hosts: String, port: Int, keyspace
     .withPort(port)
     .build()
   private val session = cluster.connect()
-  private val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm'Z'")
+  private val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
 
   if (!hasKeyspace) execute(createDatabaseStatement)
 
