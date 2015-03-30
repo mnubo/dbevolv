@@ -11,7 +11,11 @@ import com.mnubo.app_util.Logging
 import scala.annotation.tailrec
 
 object Docker extends Logging {
-  private val dockerClient = DockerClientBuilder.getInstance().build()
+  private val dockerClient = DockerClientBuilder
+    .getInstance()
+    .withServiceLoaderClassLoader(getClass.getClassLoader)
+    .build()
+
   private val HostParseRegex = """\d+\.[0-9\.]+""".r
   val dockerHost = {
     val hostVar = System.getenv("DOCKER_HOST")
