@@ -43,7 +43,7 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, inde
   private val client = {
     val addresses = hosts.split(",").map(new InetSocketTransportAddress(_, port))
 
-    new TransportClient().addTransportAddresses(addresses: _*)
+    new TransportClient(ImmutableSettings.builder().classLoader(getClass.getClassLoader).build()).addTransportAddresses(addresses: _*)
   }
   
   private val versionTypeName = s"${schemaName}_version"

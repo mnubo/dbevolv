@@ -1,7 +1,8 @@
 package com.mnubo.dbschemas.plugin
 
-import com.mnubo.dbschemas.TestDatabaseBuilder
 import com.typesafe.config.ConfigFactory
+import sbt.Attributed._
+import sbt.Defaults._
 import sbt.Keys._
 import sbt._
 import sbtassembly.AssemblyPlugin
@@ -42,10 +43,23 @@ object DbSchemasPlugin extends AutoPlugin {
     // Specify what is the main class to run in the fat jar
     mainClass in assembly                 := Some("com.mnubo.dbschemas.DbSchemas"),
     // We just need the dbschemas library to build a schema. We automatically infer the version to use.
-    libraryDependencies                   += "com.mnubo" %% "dbschemas" % dbschemasVersion,
+    libraryDependencies                   ++= Seq(
+      "com.mnubo" %% "dbschemas" % dbschemasVersion
+    ),
     // Give the fat jar a simple name
     assemblyJarName                       := s"$schemaName-schema-manager.jar",
-    buildTestContainer                    := TestDatabaseBuilder.build(version.value),
+    buildTestContainer                    := {
+      val cp = (fullClasspath in Compile).value
+      val args = Seq(version.value)
+      val scalaRun = (runner in run).value
+
+      sbt.Defaults.toError(scalaRun.run(
+        "com.mnubo.dbschemas.TestDatabaseBuilder",
+        data(cp),
+        args,
+        streams.value.log
+      ))
+    },
     dockerBuildAndPush                    <<= (dockerBuildAndPush dependsOn buildTestContainer),
     dockerfile in docker                  := {
       val artifact = (assembly in assembly).value

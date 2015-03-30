@@ -118,7 +118,7 @@ object DatabaseMigrator extends Logging {
   }
 
   private case class ClassStatement(className: String) extends Statement {
-    private val c = Class.forName(className)
+    private val c = getClass.getClassLoader.loadClass(className)
     private val scripInstance = c.newInstance()
     private val executeMethod = c.getMethods.find(_.getName == "execute").get
 
