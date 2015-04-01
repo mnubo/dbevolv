@@ -28,7 +28,6 @@ object Docker extends Logging {
 
   private val dockerClient = DockerClientBuilder
     .getInstance(config)
-    .withDockerCmdExecFactory(DockerCmdExecFactory)
     .withServiceLoaderClassLoader(getClass.getClassLoader)
     .build()
 
