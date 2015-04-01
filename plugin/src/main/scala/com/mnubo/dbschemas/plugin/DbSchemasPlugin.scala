@@ -97,8 +97,8 @@ object DbSchemasPlugin extends AutoPlugin {
       inquireVersions,
       runTest,
       setReleaseVersion,
-      tagRelease,
       publishArtifacts,
+      tagRelease,
       setNextVersion,
       commitNextVersion,
       pushChanges

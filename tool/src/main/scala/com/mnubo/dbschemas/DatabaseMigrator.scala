@@ -57,7 +57,7 @@ object DatabaseMigrator extends Logging {
     for {
       step <- steps
       stmtFile = findStatementFile(step, "upgrade.")
-      stmts = getStatements(stmtFile)
+      stmts = parseStatements(stmtFile)
     } {
       logInfo(s"Executing upgrade $step")
       stmts.foreach(_.execute(connection, name))
@@ -69,18 +69,18 @@ object DatabaseMigrator extends Logging {
     for {
       step <- steps
       stmtFile = findStatementFile(step, "downgrade.")
-      stmts = getStatements(stmtFile)
+      stmts = parseStatements(stmtFile)
     } {
       stmts.foreach(_.execute(connection, name))
       connection.markMigrationAsUninstalled(step)
     }
   }
 
-  private def getStatements(stmtFile: File) =
+  private def parseStatements(stmtFile: File) =
     Source
       .fromFile(stmtFile)
       .getLines()
-      .filterNot(_.isEmpty)
+      .filterNot(_.trim.isEmpty)
       .filterNot(_.startsWith("#"))
       .mkString(" ")
       .split(";")
