@@ -8,7 +8,9 @@ import sbt._
 import sbtassembly.AssemblyPlugin
 import sbtassembly.AssemblyPlugin.autoImport._
 import sbtdocker.DockerKeys._
+import sbtdocker.Instructions._
 import sbtdocker.immutable.Dockerfile
+import sbtdocker.staging.CopyFile
 import sbtdocker.{DockerPlugin, ImageName}
 import sbtrelease.ReleasePlugin.ReleaseKeys._
 import sbtrelease.ReleasePlugin._
@@ -66,15 +68,16 @@ object DbSchemasPlugin extends AutoPlugin {
       val artifact = (assembly in assembly).value
       val artifactTargetPath = s"/app/${artifact.name}"
 
-      new Dockerfile {
-        // User the space friendlier centOS distrib (compared to default Ubuntu), the less buggy Oracle JRE (compared to OpenJDK), and clean stuff properly. Bottom line: 400MB instead of 815MB.
-        from("domblack/oracle-jre8")
-        add(artifact, artifactTargetPath)
-        addRaw("db.conf", "/app/db.conf")
-        addRaw("migrations/", "/app/migrations/")
-        workDir("/app")
-        entryPoint("java", "-jar", artifactTargetPath)
-      }
+      val res = Dockerfile(Seq(
+        From("domblack/oracle-jre8"),
+        Add(CopyFile(artifact), artifactTargetPath),
+        Add(CopyFile(new File("db.conf")), "/app/db.conf"),
+        Add(CopyFile(new File("migrations")), "/app/migrations/"),
+        WorkDir("/app"),
+        EntryPoint.exec(Seq("java", "-jar", artifactTargetPath))
+      ))
+
+      res
     },
     imageNames in docker := Seq(
       ImageName(
