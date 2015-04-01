@@ -46,6 +46,7 @@ object TestDatabaseBuilder extends App with Logging {
 
   logInfo(s"Commiting $dbKind $schemaName test instance ...")
   Docker.stop(container.id)
+  Thread.sleep(1000) // Let some time happen to decrease chance that the device mapper race condition occur.
   val imageId = Docker.commit(container.id, repositoryName, schemaBuildVersion)
 
   logInfo(s"Publishing $dbKind $schemaName test instance to $repositoryName:$schemaBuildVersion ...")
