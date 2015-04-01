@@ -4,10 +4,10 @@ package dbschemas.docker
 import java.io.{BufferedInputStream, BufferedReader, InputStream, InputStreamReader}
 import java.net.ServerSocket
 
-import com.github.dockerjava.api.command.DockerCmdExecFactory
 import com.github.dockerjava.api.model.{ExposedPort, PortBinding, Ports}
-import com.github.dockerjava.core.{DockerClientConfig, DockerClientBuilder}
+import com.github.dockerjava.core.{DockerClientBuilder, DockerClientConfig}
 import com.mnubo.app_util.Logging
+import scala.sys.process._
 
 import scala.annotation.tailrec
 
@@ -115,14 +115,12 @@ object Docker extends Logging {
       .exec()
 
   def remove(container: String): Unit =
-    dockerClient
-      .removeContainerCmd(container)
-      .exec()
+    if (0 != Seq("docker", "rm", container).!)
+      throw new Exception(s"Cannot remove container $container.")
 
   def removeImage(image: String): Unit =
-    dockerClient
-      .removeImageCmd(image)
-      .exec()
+    if (0 != Seq("docker", "rmi", image).!)
+      throw new Exception(s"Cannot remove image $image.")
 
   private def asString(stream: InputStream) =
     using(stream) { _ =>
