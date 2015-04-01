@@ -4,26 +4,39 @@ package dbschemas.docker
 import java.io.{BufferedInputStream, BufferedReader, InputStream, InputStreamReader}
 import java.net.ServerSocket
 
+import com.github.dockerjava.api.command.DockerCmdExecFactory
 import com.github.dockerjava.api.model.{ExposedPort, PortBinding, Ports}
-import com.github.dockerjava.core.DockerClientBuilder
+import com.github.dockerjava.core.{DockerClientConfig, DockerClientBuilder}
 import com.mnubo.app_util.Logging
 
 import scala.annotation.tailrec
 
 object Docker extends Logging {
+  private val HostParseRegex = """\d+\.[0-9\.]+""".r
+  private val hostVar = System.getenv("DOCKER_HOST")
+
+  private val config =
+    if (hostVar != null)
+      DockerClientConfig
+        .createDefaultConfigBuilder()
+        .build()
+    else
+      DockerClientConfig
+        .createDefaultConfigBuilder()
+        .withUri("unix:///var/run/docker.sock")
+        .build()
+
   private val dockerClient = DockerClientBuilder
-    .getInstance()
+    .getInstance(config)
+    .withDockerCmdExecFactory(DockerCmdExecFactory)
     .withServiceLoaderClassLoader(getClass.getClassLoader)
     .build()
 
-  private val HostParseRegex = """\d+\.[0-9\.]+""".r
-  val dockerHost = {
-    val hostVar = System.getenv("DOCKER_HOST")
+  val dockerHost =
     if (hostVar != null)
       HostParseRegex.findFirstIn(hostVar).get
     else
       "localhost"
-  }
 
   private def getAvailablePort =
     using(new ServerSocket(0))(_.getLocalPort)
