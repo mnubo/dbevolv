@@ -84,6 +84,7 @@ object DatabaseMigrator extends Logging {
       .filterNot(_.startsWith("#"))
       .mkString(" ")
       .split(";")
+      .filterNot(_.isEmpty) // mkString is at least producing an empty string, so have to refilter empty lines.
       .map { line =>
         if (line.startsWith("@@"))
           ClassStatement(line.replace("@@", ""))
