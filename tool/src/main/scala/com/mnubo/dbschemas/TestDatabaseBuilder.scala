@@ -22,14 +22,14 @@ object TestDatabaseBuilder extends App with Logging {
   val repositoryName = s"$MnuboDockerRegistry/$imageName"
   val db = Database.databases(dbKind)
 
-  logInfo(s"Starting a fresh test $dbKind $schemaName instance...")
+  logInfo(s"Starting a fresh test $dbKind $schemaName instance ...")
   val container = Docker.run(
     dockerImage = db.testDockerBaseImage.name,
     exposedPort = db.testDockerBaseImage.mappedPort,
     isStarted = db.isStarted
   )
 
-  logInfo(s"Creating and migrating test database '$schemaName' to latest version...")
+  logInfo(s"Creating and migrating test database '$schemaName' to latest version ...")
   DatabaseMigrator.migrate(DbMigrationConfig(
     db,
     schemaName,
@@ -44,14 +44,16 @@ object TestDatabaseBuilder extends App with Logging {
     config
   ))
 
-  logInfo(s"Commiting $dbKind $schemaName test instance...")
+  logInfo(s"Commiting $dbKind $schemaName test instance ...")
   Docker.stop(container.id)
   val imageId = Docker.commit(container.id, repositoryName, schemaBuildVersion)
 
-  logInfo(s"Publishing $dbKind $schemaName test instance...")
+  logInfo(s"Publishing $dbKind $schemaName test instance to $repositoryName:$schemaBuildVersion ...")
   Docker.push(repositoryName)
 
-  logInfo(s"Cleaning up...")
+  logInfo(s"Cleaning up container ${container.id} ...")
   Docker.remove(container.id)
+
+  logInfo(s"Cleaning up image $imageId ...")
   Docker.removeImage(imageId)
 }
