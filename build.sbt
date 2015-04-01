@@ -10,7 +10,7 @@ lazy val tool = (project in file("tool"))
     libraryDependencies ++= Seq(
       "com.datastax.cassandra"  %  "cassandra-driver-core"  % "2.1.4",
       "org.elasticsearch"       %  "elasticsearch"          % "1.4.4",
-      "com.mnubo"               %  "app-util"               % "[1.0.0,)",
+      "com.mnubo"               %  "app-util"               % "[1.0.0,)" changing(),
       "com.github.docker-java"  %  "docker-java"            % "1.0.0",
       "com.github.scopt"        %% "scopt"                  % "3.3.0"
     )
@@ -22,7 +22,7 @@ lazy val migrator = (project in file("migrator"))
     name := "migrator",
     publish := {}, // We don't want to publish this guy
     libraryDependencies ++= Seq(
-      "com.mnubo"               %  "app-util"               % "[1.0.0,)",
+      "com.mnubo"               %  "app-util"               % "[1.0.0,)" changing(),
       "commons-io"              % "commons-io"              % "2.4",
       "com.google.code.gson"    %  "gson"                   % "2.3.1"
     )
