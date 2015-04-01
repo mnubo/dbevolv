@@ -49,6 +49,7 @@ object DbSchemasPlugin extends AutoPlugin {
     // Give the fat jar a simple name
     assemblyJarName                       := s"$schemaName-schema-manager.jar",
     buildTestContainer                    := {
+      streams.value.log.info(s"Building a test container. dbschemas version: $dbschemasVersion")
       val cp = (fullClasspath in Compile).value
       val args = Seq(version.value)
       val scalaRun = (runner in run).value
