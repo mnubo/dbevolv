@@ -41,32 +41,13 @@ object Docker extends Logging {
     using(new ServerSocket(0))(_.getLocalPort)
 
   def run(dockerImage: String, exposedPort: Int, isStarted: String => Boolean): ContainerInfo = {
-    val dbMainPort = ExposedPort.tcp(exposedPort)
     val hostPort = getAvailablePort
 
-    if (dockerImage.contains(":")) {
-      val Array(image, tag) = dockerImage.split(':')
-      dockerClient
-        .pullImageCmd(image)
-        .withTag(tag)
-        .exec()
-    }
-    else {
-      dockerClient
-        .pullImageCmd(dockerImage)
-        .exec()
-    }
-    val container = dockerClient
-      .createContainerCmd(dockerImage)
-      .withExposedPorts(dbMainPort)
-      .withTty(true)
-      .exec()
-      .getId
+    if (0 != Seq("docker", "pull", dockerImage).!)
+      throw new Exception(s"Cannot pull $dockerImage.")
 
-    dockerClient
-      .startContainerCmd(container)
-      .withPortBindings(new PortBinding(Ports.Binding(hostPort), dbMainPort))
-      .exec()
+    val container =
+      Seq("docker", "run", "-dt", "-p", s"$hostPort:$exposedPort", dockerImage).!!.trim
 
     @tailrec
     def waitStarted: Unit = {
