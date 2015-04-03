@@ -24,8 +24,6 @@ object Docker extends Logging {
   def run(dockerImage: String, exposedPort: Int, isStarted: String => Boolean): ContainerInfo = {
     val hostPort = getAvailablePort
 
-    exec(s"docker pull $dockerImage")
-
     val container = execAndRead(s"docker run -dt -p $hostPort:$exposedPort $dockerImage")
 
     @tailrec
