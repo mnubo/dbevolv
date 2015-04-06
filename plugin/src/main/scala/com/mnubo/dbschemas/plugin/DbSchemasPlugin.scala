@@ -32,6 +32,7 @@ object DbSchemasPlugin extends AutoPlugin {
 
   object autoImport {
     val buildTestContainer = taskKey[Unit]("Build test database container")
+    val buildAndPushTestContainer = taskKey[Unit]("Build test database container, and then push it")
   }
 
   import autoImport._
@@ -50,20 +51,9 @@ object DbSchemasPlugin extends AutoPlugin {
     ),
     // Give the fat jar a simple name
     assemblyJarName                       := s"$schemaName-schema-manager.jar",
-    buildTestContainer                    := {
-      streams.value.log.info(s"Building a test container. dbschemas version: $dbschemasVersion")
-      val cp = (fullClasspath in Compile).value
-      val args = Seq(version.value)
-      val scalaRun = (runner in run).value
-
-      sbt.Defaults.toError(scalaRun.run(
-        "com.mnubo.dbschemas.TestDatabaseBuilder",
-        data(cp),
-        args,
-        streams.value.log
-      ))
-    },
-    dockerBuildAndPush                    <<= (dockerBuildAndPush dependsOn buildTestContainer),
+    buildTestContainer                    <<= buildTestContainerTask(doPush = false),
+    buildAndPushTestContainer             <<= buildTestContainerTask(doPush = true),
+    dockerBuildAndPush                    <<= (dockerBuildAndPush dependsOn buildAndPushTestContainer),
     dockerfile in docker                  := {
       val artifact = (assembly in assembly).value
       val artifactTargetPath = s"/app/${artifact.name}"
@@ -108,4 +98,23 @@ object DbSchemasPlugin extends AutoPlugin {
       pushChanges
     )
   )
+
+  private def buildTestContainerTask(doPush: Boolean) = Def.task[Unit] {
+    streams.value.log.info(s"Building a test container. dbschemas version: $dbschemasVersion")
+    val cp = (fullClasspath in Compile).value
+    val args =
+      if (doPush)
+        Seq(version.value, "push")
+      else
+        Seq(version.value)
+    val scalaRun = (runner in run).value
+
+    sbt.Defaults.toError(scalaRun.run(
+      "com.mnubo.dbschemas.TestDatabaseBuilder",
+      data(cp),
+      args,
+      streams.value.log
+    ))
+
+  }
 }

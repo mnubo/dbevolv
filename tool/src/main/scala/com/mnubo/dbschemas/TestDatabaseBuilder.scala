@@ -10,6 +10,7 @@ import com.typesafe.config.{ConfigParseOptions, ConfigFactory}
 object TestDatabaseBuilder extends App with Logging {
   val MnuboDockerRegistry = "dockerep-0.mtl.mnubo.com"
   val schemaBuildVersion = args(0)
+  val doPush = if (args.size == 2) true else false
   val defaultConfig = ConfigFactory.load(ConfigParseOptions.defaults().setClassLoader(getClass.getClassLoader))
   val config = MnuboConfiguration.loadConfig(
     ConfigFactory
@@ -46,15 +47,16 @@ object TestDatabaseBuilder extends App with Logging {
 
   logInfo(s"Commiting $dbKind $schemaName test instance ...")
   Docker.stop(container.id)
-  Thread.sleep(1000) // Let some time happen to decrease chance that the device mapper race condition occur.
   val imageId = Docker.commit(container.id, repositoryName, schemaBuildVersion)
-
-  logInfo(s"Publishing $dbKind $schemaName test instance to $repositoryName:$schemaBuildVersion ...")
-  Docker.push(repositoryName)
 
   logInfo(s"Cleaning up container ${container.id} ...")
   Docker.remove(container.id)
 
-  logInfo(s"Cleaning up image $imageId ...")
-  Docker.removeImage(imageId)
+  if (doPush) {
+    logInfo(s"Publishing $dbKind $schemaName test instance to $repositoryName:$schemaBuildVersion ...")
+    Docker.push(repositoryName)
+
+    logInfo(s"Cleaning up image $imageId ...")
+    Docker.removeImage(imageId)
+  }
 }

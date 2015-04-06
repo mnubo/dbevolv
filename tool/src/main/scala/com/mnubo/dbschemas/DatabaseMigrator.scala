@@ -35,8 +35,8 @@ object DatabaseMigrator extends Logging {
       availableMigrations
         .zipWithIndex
         .find { case (v, i) => !installedMigrations.contains(v) }
-        .get
-        ._2 - 1
+        .map(_._2)
+        .getOrElse(availableMigrations.size) - 1
 
     val targetIndex =
       availableMigrations
