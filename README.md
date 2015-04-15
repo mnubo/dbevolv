@@ -152,6 +152,15 @@ And then, in your `db.conf` file, you need to override the default database name
       name_provider_class = "com.mnubo.ingestion.LegacyDatabaseNameProvider"
     }
 
+Testing your newly added script locally before committing
+---------------------------------------------------------
+
+Just run:
+
+    sbt buildTestContainer
+
+This will build the test container, through all the migration scripts. You can then look at 'Using a test instance in automated tests' to connect to this instance and verify it is working well.
+
 Project examples
 ----------------
 

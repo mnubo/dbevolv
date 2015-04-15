@@ -74,9 +74,9 @@ object Boot extends App {
     val version = migrationFile.getName.replace("_MnuboSchema.json", "").replace(".", "_")
     println("Version " + version)
 
-
     schemaScripts
       .filterNot(_._2.isEmpty)
+      .filterNot(_._1 == Enrichment) // Already done previously
       .foreach { case (name, s) =>
         s.print(name)
 
@@ -97,7 +97,10 @@ object Boot extends App {
   }
 
   def cql(template: String => String) =
-    projects.map(p => s"${template(if (p == GlobalConfig) s"mnuboglobalconfig.$p" else p)}").mkString(",\n      ")
+    projects
+      .filterNot(_ == Enrichment) // Already done previously
+      .map(p => s"${template(if (p == GlobalConfig) s"mnuboglobalconfig.$p" else p)}")
+      .mkString(",\n      ")
 
   def inserts(projectName: String) =
     versions
