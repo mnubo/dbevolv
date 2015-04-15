@@ -6,7 +6,11 @@ import com.mnubo.app_util.MnuboConfiguration
 import com.typesafe.config.{Config, ConfigFactory}
 
 object DbSchemas extends App {
-  private val config = MnuboConfiguration.loadConfig(ConfigFactory.parseFile(new File("db.conf")).withFallback(ConfigFactory.load()))
+  private val config = ConfigFactory
+    .defaultOverrides()
+    .withFallback(MnuboConfiguration.loadConfig(ConfigFactory.parseFile(new File("db.conf")))
+    .withFallback(ConfigFactory.load()))
+
   private val schemaName = config.getString("schema_name")
 
   val parser = new scopt.OptionParser[DbSchemasArgsConfig](s"docker run -it --rm -e ENV=<environment name> dockerep-0.mtl.mnubo.com/$schemaName:latest") {
