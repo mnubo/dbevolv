@@ -28,7 +28,7 @@ object DatabaseMigrator extends Logging {
 
   private def migrate(connection: DatabaseConnection, name: String, targetVersion: Option[String]): Unit = {
     val availableMigrations = getAvailableMigrations
-    val installedMigrations = connection.getInstalledMigrationVersions
+    val installedMigrations = connection.getInstalledMigrationVersions.map(_.version)
     val target = targetVersion.getOrElse(availableMigrations.last)
 
     val currentIndex =

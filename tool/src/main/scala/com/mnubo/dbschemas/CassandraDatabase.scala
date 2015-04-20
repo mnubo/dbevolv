@@ -5,6 +5,7 @@ import java.util.Date
 
 import com.datastax.driver.core.Cluster
 import com.typesafe.config.Config
+import org.joda.time.{DateTimeZone, DateTime}
 
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
@@ -64,14 +65,14 @@ class CassandraConnection(schemaName: String, hosts: String, port: Int, keyspace
     execute("USE " + keyspace)
   }
 
-  override def getInstalledMigrationVersions: Set[String] = {
+  override def getInstalledMigrationVersions: Set[InstalledVersion] = {
     ensureVersionTable()
 
     session
-      .execute(s"SELECT migration_version FROM ${schemaName}_version")
+      .execute(s"SELECT migration_version, migration_date FROM ${schemaName}_version")
       .all()
       .asScala
-      .map(_.getString("migration_version"))
+      .map(row => InstalledVersion(row.getString("migration_version"), new DateTime(row.getDate("migration_date").getTime).withZone(DateTimeZone.UTC)))
       .toSet
   }
 

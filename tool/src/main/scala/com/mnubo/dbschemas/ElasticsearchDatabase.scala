@@ -14,6 +14,7 @@ import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.{ImmutableSettings, Settings}
 import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.index.query.QueryBuilders
+import org.joda.time.{DateTimeZone, DateTime}
 
 import scala.collection.JavaConverters._
 import scala.util.Try
@@ -66,7 +67,7 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, inde
     createIndex()
   }
 
-  override def getInstalledMigrationVersions: Set[String] = {
+  override def getInstalledMigrationVersions: Set[InstalledVersion] = {
     ensureVersionTypeExists()
 
     client
@@ -78,7 +79,7 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, inde
       .actionGet()
       .getHits
       .getHits
-      .map(_.getId)
+      .map(doc => InstalledVersion(doc.getId, DateTime.parse(doc.getSource.get("migration_date").asInstanceOf[String]).withZone(DateTimeZone.UTC)))
       .toSet
   }
 
