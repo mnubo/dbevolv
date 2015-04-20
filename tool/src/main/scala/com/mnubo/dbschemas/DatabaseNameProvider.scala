@@ -13,11 +13,6 @@ class DefaultDatabaseNameProvider extends DatabaseNameProvider {
 }
 
 class LegacyDatabaseNameProvider extends DatabaseNameProvider {
-  private val default = new DefaultDatabaseNameProvider
-
-  def computeDatabaseName(schemaLogicalName: String, namespace: Option[String]) = namespace match {
-    case Some(ns) if ns == "connectedevice" => ns
-    case Some(ns) if ns == "vanhawks" => ns
-    case _ => default.computeDatabaseName(schemaLogicalName, namespace)
-  }
+  def computeDatabaseName(schemaLogicalName: String, namespace: Option[String]) =
+    namespace.get
 }
