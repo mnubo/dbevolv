@@ -21,13 +21,21 @@ object DbSchemas extends App {
       c.copy(version = Some(x)) } text("The version you want to upgrade / downgrade to. If not specified, will upagrade to latest version.")
     opt[Unit]("drop") action { (_, c) =>
       c.copy(drop = true) } text("[DANGEROUS] Whether you want to first drop the database before migrating to the given version. WARNING! You will loose all your data, don't use this option in production!")
+    opt[Unit]("history") action { (_, c) =>
+      c.copy(cmd = DisplayHistory) } text("Display history of database migrations instead of migrating the database.")
     help("help") text("Display this schema manager usage.")
     note("Example:")
     note(s"  docker run -it --rm -e ENV=dev dockerep-0.mtl.mnubo.com/$schemaName:latest --version=0004")
   }
 
   parser.parse(args, DbSchemasArgsConfig()).foreach { argConfig =>
-    DatabaseMigrator.migrate(buildConfig(argConfig))
+    val cfg = buildConfig(argConfig)
+    argConfig.cmd match {
+      case Migrate =>
+        DatabaseMigrator.migrate(cfg)
+      case DisplayHistory =>
+        DatabaseInspector.displayHistory(cfg)
+    }
   }
 
   def buildConfig(args: DbSchemasArgsConfig) = {
@@ -53,7 +61,7 @@ object DbSchemas extends App {
   }
 }
 
-case class DbSchemasArgsConfig(drop: Boolean = false, namespace: Option[String] = None, version: Option[String] = None)
+case class DbSchemasArgsConfig(drop: Boolean = false, namespace: Option[String] = None, version: Option[String] = None, cmd: DbCommand = Migrate)
 
 case class DbMigrationConfig(db: Database,
                              schemaName: String,
@@ -66,3 +74,8 @@ case class DbMigrationConfig(db: Database,
                              drop: Boolean,
                              version: Option[String],
                              wholeConfig: Config)
+
+sealed trait DbCommand
+
+case object Migrate extends DbCommand
+case object DisplayHistory extends DbCommand

@@ -3,6 +3,7 @@ package com.mnubo.dbschemas
 import java.io.Closeable
 
 import com.typesafe.config.Config
+import org.joda.time.DateTime
 
 trait Database {
   def name: String
@@ -24,12 +25,14 @@ trait DatabaseConnection extends Closeable {
   def execute(smt: String): Unit
   /** Get the concrete connection this DatabaseConnection is wrapping. Ex: the com.datastax.driver.core.Session. **/
   def innerConnection: AnyRef
-  def getInstalledMigrationVersions: Set[String]
+  def getInstalledMigrationVersions: Set[InstalledVersion]
   def markMigrationAsInstalled(migrationVersion: String)
   def markMigrationAsUninstalled(migrationVersion: String)
 }
 
 case class DatabaseDockerImage(name: String, mappedPort: Int, username: String, password: String)
+
+case class InstalledVersion(version: String, installedDate: DateTime)
 
 object Database {
   val databases =

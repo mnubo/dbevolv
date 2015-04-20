@@ -98,7 +98,6 @@ object Boot extends App {
 
   def cql(template: String => String) =
     projects
-      .filterNot(_ == Enrichment) // Already done previously
       .map(p => s"${template(if (p == GlobalConfig) s"mnuboglobalconfig.$p" else p)}")
       .mkString(",\n      ")
 

@@ -187,6 +187,8 @@ This should result to something like:
             The version you want to upgrade / downgrade to. If not specified, will upagrade to latest version.
       --drop
             [DANGEROUS] Whether you want to first drop the database before migrating to the given version. WARNING! You will loose all your data, don't use this option in production!
+      --history
+            Display history of database migrations instead of migrating the database.
       --help
             Display this schema manager usage.
     Example:
@@ -201,9 +203,7 @@ Inspecting the migrations inside a schema manager
 Getting the list of already installed migrations in a database
 --------------------------------------------------------------
 
-Connect to the database and run:
-
-    SELECT * FROM <schema_name>_version;
+    docker run -it --rm -e ENV=<environment name> dockerep-0.mtl.mnubo.com/<schema_name>-mgr:latest --history [--namespace <namespace>]
 
 Using a test instance in automated tests
 ----------------------------------------
