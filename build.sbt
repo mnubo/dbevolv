@@ -1,7 +1,7 @@
 lazy val root = (project in file("."))
   .enablePlugins(MnuboLibraryPlugin)
   .settings(publish := { })
-  .aggregate(tool, plugin)
+  .aggregate(tool, plugin, migrator)
 
 lazy val tool = (project in file("tool"))
   .enablePlugins(MnuboLibraryPlugin)
