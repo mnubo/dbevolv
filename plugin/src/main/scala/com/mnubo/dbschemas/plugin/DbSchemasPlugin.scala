@@ -87,7 +87,7 @@ object DbSchemasPlugin extends AutoPlugin {
 
       // Clean ourselves
       streams.value.log.info(s"Cleaning images...")
-      imageNames.value.foreach(img => s"docker rmi -f $img".!)
+      (imageNames in docker).value.foreach(img => s"docker rmi -f $img".!)
       streams.value.log.info(s"Images cleaned.")
     },
     releaseVersion                        := identity, // The current version is already the good one

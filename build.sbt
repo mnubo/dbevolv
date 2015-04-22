@@ -10,6 +10,7 @@ lazy val tool = (project in file("tool"))
     libraryDependencies ++= Seq(
       "com.datastax.cassandra"  %  "cassandra-driver-core"  % "2.1.4",
       "org.elasticsearch"       %  "elasticsearch"          % "1.4.4",
+      "mysql"                   %  "mysql-connector-java"   % "5.1.35",
       "joda-time"               %  "joda-time"              % "2.7",
       "org.joda"                %  "joda-convert"           % "1.7",
       "com.mnubo"               %  "app-util"               % "[1.0.0,)" changing(),

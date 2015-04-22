@@ -30,13 +30,13 @@ trait DatabaseConnection extends Closeable {
   def markMigrationAsUninstalled(migrationVersion: String)
 }
 
-case class DatabaseDockerImage(name: String, mappedPort: Int, username: String, password: String)
+case class DatabaseDockerImage(name: String, mappedPort: Int, username: String, password: String, additionalOptions: Option[String] = None)
 
 case class InstalledVersion(version: String, installedDate: DateTime)
 
 object Database {
   val databases =
-    List(CassandraDatabase, ElasticsearchDatabase)
+    List(CassandraDatabase, ElasticsearchDatabase, MysqlDatabase)
       .map(db => db.name -> db)
       .toMap
 }

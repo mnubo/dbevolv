@@ -21,10 +21,12 @@ object Docker extends Logging {
   private def getAvailablePort =
     using(new ServerSocket(0))(_.getLocalPort)
 
-  def run(dockerImage: String, exposedPort: Int, isStarted: String => Boolean): ContainerInfo = {
+  def run(dockerImage: String, exposedPort: Int, isStarted: String => Boolean, additionalOptions: Option[String] = None): ContainerInfo = {
     val hostPort = getAvailablePort
 
-    val container = execAndRead(s"docker run -dt -p $hostPort:$exposedPort $dockerImage")
+    val options = additionalOptions.map(_ + " ").getOrElse("")
+
+    val container = execAndRead(s"docker run -dt -p $hostPort:$exposedPort $options$dockerImage")
 
     @tailrec
     def waitStarted: Unit =

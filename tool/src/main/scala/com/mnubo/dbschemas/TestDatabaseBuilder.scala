@@ -27,7 +27,8 @@ object TestDatabaseBuilder extends App with Logging {
   val container = Docker.run(
     dockerImage = db.testDockerBaseImage.name,
     exposedPort = db.testDockerBaseImage.mappedPort,
-    isStarted = db.isStarted
+    isStarted = db.isStarted,
+    additionalOptions = db.testDockerBaseImage.additionalOptions
   )
 
   logInfo(s"Creating and migrating test database '$schemaName' to latest version ...")
