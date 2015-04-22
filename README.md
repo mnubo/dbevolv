@@ -8,6 +8,7 @@ Supported databases
 
 * cassandra
 * elasticsearch
+* mysql
 
 Usage
 =====
