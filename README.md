@@ -215,8 +215,8 @@ Each time a new migration is pushed to Gitlab, Jenkins will generate a test data
 
 For example, with the Cassandra reverse_geo database:
 
-    docker run -dt -p 9042:40155 dockerep-0.mtl.mnubo.com/test-reverse_geo:latest
+    docker run -dt -p 40155:9042 dockerep-0.mtl.mnubo.com/test-reverse_geo:latest
 
-This will start a Cassandra instance, with a `reverse_geo` keyspace containing all the reverse_geo tables up to date. You can point your tests to use the 40155 port on the DOCKER_HOST in order to create a session.
+This will start a Cassandra instance, with a `reverse_geo` keyspace (the logical database name) containing all the reverse_geo tables up to date. You can point your tests to use the 40155 port on the DOCKER_HOST in order to create a session.
 
 
