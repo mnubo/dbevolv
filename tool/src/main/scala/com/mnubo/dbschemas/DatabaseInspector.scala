@@ -21,14 +21,14 @@ object DatabaseInspector extends Logging {
     )) { connection =>
       println(s"History of $name @ $host:")
       println()
-      println("         Version                    Date")
+      println("         Version                       Date")
       connection
         .getInstalledMigrationVersions
         .toSeq
         .sortBy(_.version)
         .foreach { case InstalledVersion(v, date) =>
           val fmtDate = fmt.print(date)
-          println(f"$v%16s $fmtDate%s")
+          println(f"$v%16s   $fmtDate%s")
         }
     }
   }

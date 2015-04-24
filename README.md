@@ -9,6 +9,7 @@ Supported databases
 * cassandra
 * elasticsearch
 * mysql
+* hive
 
 Usage
 =====
