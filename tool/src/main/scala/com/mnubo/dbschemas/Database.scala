@@ -36,7 +36,7 @@ case class InstalledVersion(version: String, installedDate: DateTime)
 
 object Database {
   val databases =
-    List(CassandraDatabase, ElasticsearchDatabase, MysqlDatabase)
+    List(CassandraDatabase, ElasticsearchDatabase, MysqlDatabase, HiveDatabase)
       .map(db => db.name -> db)
       .toMap
 }

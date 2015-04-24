@@ -3,6 +3,8 @@ lazy val root = (project in file("."))
   .settings(publish := { })
   .aggregate(tool, plugin, migrator)
 
+val CDHVersion = "-cdh5.1.3"
+
 lazy val tool = (project in file("tool"))
   .enablePlugins(MnuboLibraryPlugin)
   .settings(
@@ -11,6 +13,15 @@ lazy val tool = (project in file("tool"))
       "com.datastax.cassandra"  %  "cassandra-driver-core"  % "2.1.4",
       "org.elasticsearch"       %  "elasticsearch"          % "1.4.4",
       "mysql"                   %  "mysql-connector-java"   % "5.1.35",
+      "org.apache.hive"         % "hive-jdbc"               % s"0.12.0$CDHVersion" excludeAll(
+        ExclusionRule("junit"),
+        ExclusionRule("org.jboss.netty", "netty"),
+        ExclusionRule("org.mortbay.jetty"),
+        ExclusionRule("org.slf4j"),
+        ExclusionRule("org.apache.avro")
+      ),
+      "org.apache.hadoop"       % "hadoop-common"           % s"2.3.0$CDHVersion",
+      "org.apache.hadoop"       % "hadoop-hdfs"             % s"2.3.0$CDHVersion",
       "joda-time"               %  "joda-time"              % "2.7",
       "org.joda"                %  "joda-convert"           % "1.7",
       "com.mnubo"               %  "app-util"               % "[1.0.0,)" changing(),
