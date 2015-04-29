@@ -11,6 +11,8 @@ object DatabaseMigrator extends Logging {
   def migrate(config: DbMigrationConfig): Unit = {
     import config._
 
+    log.info(s"Will upgrade $name @ $host to ${version.getOrElse("latest")} version.")
+
     using(db.openConnection(
       schemaName,
       host,
@@ -37,6 +39,11 @@ object DatabaseMigrator extends Logging {
         .find { case (v, i) => !installedMigrations.contains(v) }
         .map(_._2)
         .getOrElse(availableMigrations.size) - 1
+
+    if (currentIndex > 0)
+      log.info(s"Current version is ${availableMigrations(currentIndex)}.")
+    else
+      log.info(s"This is a brand new database, with no version yet installed.")
 
     val targetIndex =
       availableMigrations

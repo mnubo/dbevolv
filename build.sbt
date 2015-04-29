@@ -10,18 +10,9 @@ lazy val tool = (project in file("tool"))
   .settings(
     name := "dbschemas",
     libraryDependencies ++= Seq(
-      "com.datastax.cassandra"  %  "cassandra-driver-core"  % "2.1.4" % "provided",
+      "com.datastax.cassandra"  %  "cassandra-driver-core"  % "2.1.4",
       "org.elasticsearch"       %  "elasticsearch"          % "1.4.4" % "provided",
       "mysql"                   %  "mysql-connector-java"   % "5.1.35" % "provided",
-      "org.apache.hive"         % "hive-jdbc"               % s"0.12.0$CDHVersion" % "provided" excludeAll(
-        ExclusionRule("junit"),
-        ExclusionRule("org.jboss.netty", "netty"),
-        ExclusionRule("org.mortbay.jetty"),
-        ExclusionRule("org.slf4j"),
-        ExclusionRule("org.apache.avro")
-      ),
-      "org.apache.hadoop"       % "hadoop-common"           % s"2.3.0$CDHVersion" % "provided",
-      "org.apache.hadoop"       % "hadoop-hdfs"             % s"2.3.0$CDHVersion" % "provided",
       "joda-time"               %  "joda-time"              % "2.7",
       "org.joda"                %  "joda-convert"           % "1.7",
       "com.mnubo"               %  "app-util"               % "[1.0.0,)" changing(),

@@ -9,7 +9,6 @@ Supported databases
 * cassandra
 * elasticsearch
 * mysql
-* hive
 
 Usage
 =====
@@ -31,6 +30,7 @@ Create a git repo with the following structure:
 The `db.conf` should contain the description of the database schema. You must also specify the connection strings for all the environments. For example:
 
     database_kind = cassandra
+    hasInstanceForEachNamespace = false
     schema_name = reverse_geo
     create_database_statement = "CREATE KEYSPACE @@DATABASE_NAME@@ WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }"
 
@@ -54,6 +54,7 @@ The `db.conf` should contain the description of the database schema. You must al
 Here are the different parameters you can configure:
 
 * **database_kind**: which kind of database we are targeting. See "Supported databases" for valid values.
+* **hasInstanceForEachNamespace**: whether this database have a distinct instance for each of the namespaces. Default is 'false' (the database is a 'global' one).
 * **schema_name**: the logical name of this database schema.
 * **host**: the host or hosts name(s) to connect to.
 * **port**: the port to connect to. Leave empty for default port.
@@ -130,7 +131,7 @@ The actual database / keyspace name will be computed the following way:
 
 * **for global databases**: the logical schema_name will be used.
     * Ex: reverse_geo
-* **for databases per customer**: the name will be suffixed with the customer's namespace.
+* **for databases per namespace**: the name will be suffixed with the customer's namespace.
     * Ex: ingestion_connectedevice
 
 Sometimes, this is not suitable. For example, QA keyspace names might be totally custom. Or historical keyspaces might be jammed together. For all these use cases, you can customize the keyspace name provider. For example:
@@ -140,11 +141,8 @@ Sometimes, this is not suitable. For example, QA keyspace names might be totally
     class LegacyDatabaseNameProvider extends DatabaseNameProvider {
       private val default = new DefaultDatabaseNameProvider
 
-      def computeDatabaseName(schemaLogicalName: String, namespace: Option[String]) = namespace match {
-        case Some(ns) if ns == "connectedevice" => ns
-        case Some(ns) if ns == "vanhawks" => ns
-        case _ => default.computeDatabaseName(schemaLogicalName, namespace)
-      }
+      def computeDatabaseName(schemaLogicalName: String, namespace: Option[String]) = 
+        namespace
     }
 
 And then, in your `db.conf` file, you need to override the default database name provider in the relevant environments:
@@ -172,29 +170,25 @@ Project examples
 Upgrading / downgrading a database
 ----------------------------------
 
-The target schema/database/keyspace must already exist. dbschemas do not support the creation of the database itself.
-
 To get usage:
 
     docker run -it --rm -e ENV=<environment name> dockerep-0.mtl.mnubo.com/<schema_name>-mgr:latest --help
 
 This should result to something like:
 
-    Upgrades / downgrades the reverse_geo database.
-    Usage: docker run -it --rm -e ENV=<environment name> dockerep-0.mtl.mnubo.com/reverse_geo-mgr:latest [options]
+    Upgrades / downgrades the enrichment database to the given version for all the namespaces.
+    Usage: docker run -it --rm -e ENV=<environment name> dockerep-0.mtl.mnubo.com/enrichment-mgr:latest [options]
 
-      -n <value> | --namespace <value>
-            If your database needs a different instance per namespace, the namespace your are targeting.
       -v <value> | --version <value>
             The version you want to upgrade / downgrade to. If not specified, will upagrade to latest version.
-      --drop
-            [DANGEROUS] Whether you want to first drop the database before migrating to the given version. WARNING! You will loose all your data, don't use this option in production!
       --history
             Display history of database migrations instead of migrating the database.
       --help
             Display this schema manager usage.
     Example:
-      docker run -it --rm -e ENV=dev dockerep-0.mtl.mnubo.com/reverse_geo:latest --version 0004
+      docker run -it --rm -e ENV=dev dockerep-0.mtl.mnubo.com/enrichment:latest --version 0004
+      
+Note: the help message is slightly different for the databases that don't have one instance by namespace (global databases).
 
 Inspecting the migrations inside a schema manager
 -------------------------------------------------
@@ -205,7 +199,25 @@ Inspecting the migrations inside a schema manager
 Getting the list of already installed migrations in a database
 --------------------------------------------------------------
 
-    docker run -it --rm -e ENV=<environment name> dockerep-0.mtl.mnubo.com/<schema_name>-mgr:latest --history [--namespace <namespace>]
+    docker run -it --rm -e ENV=<environment name> dockerep-0.mtl.mnubo.com/<schema_name>-mgr:latest --history
+    
+Example output in dev on the enrichment Cassandra database:
+
+    History of sparkdemoconnectedcars @ vm21-hulk-priv,vm22-hulk-priv,vm23-hulk-priv:
+    
+             Version                       Date
+    History of sparkdemowearables @ vm21-hulk-priv,vm22-hulk-priv,vm23-hulk-priv:
+    
+             Version                       Date
+    History of sparkdemoagriculture @ vm21-hulk-priv,vm22-hulk-priv,vm23-hulk-priv:
+    
+             Version                       Date
+    History of connectedevice @ vm21-hulk-priv,vm22-hulk-priv,vm23-hulk-priv:
+    
+             Version                       Date
+    History of julconnectedevice @ vm21-hulk-priv,vm22-hulk-priv,vm23-hulk-priv:
+    
+             Version                       Date
 
 Using a test instance in automated tests
 ----------------------------------------
