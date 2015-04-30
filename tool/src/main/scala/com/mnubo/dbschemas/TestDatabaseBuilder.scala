@@ -50,6 +50,8 @@ object TestDatabaseBuilder extends App with Logging {
   Docker.stop(container.id)
   val imageId = Docker.commit(container.id, repositoryName, schemaVersion)
 
+
+
   logInfo(s"Cleaning up container ${container.id} ...")
   Docker.remove(container.id)
 

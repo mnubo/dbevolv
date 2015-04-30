@@ -1,9 +1,11 @@
-package com.mnubo.dbschemas
+package com.mnubo
+package dbschemas
 
-import java.sql.DriverManager
+import java.sql.{ResultSet, Connection, DriverManager}
 import java.text.SimpleDateFormat
 import java.util.{Date, TimeZone}
 
+import com.mnubo.test_utils.mysql.DockerMySQL
 import com.typesafe.config.Config
 import org.joda.time.{DateTime, DateTimeZone}
 
@@ -111,6 +113,39 @@ class MysqlConnection(schemaName: String,
         false
     }
 
-  override def isSchemaValid: Boolean =
-    true // TODO
+  override def isSchemaValid: Boolean = {
+    val currentVersion = getInstalledMigrationVersions.map(_.version).toSeq.sorted.last
+
+    val currentSchema = schema(connection)
+
+    val expectedSchema = using(DockerMySQL(schemaName, currentVersion))(mysql => schema(mysql.client))
+
+    expectedSchema.isCompatibleWith(currentSchema)
+  }
+
+  private def schema(connection: Connection): Schema[Int] = {
+    val meta = connection.getMetaData
+
+    Schema(
+      using(meta.getTables(database, null, "%", Array("TABLE"))) { rs =>
+        readResultset(rs)(_.getString("TABLE_NAME"))
+          .map { tableName =>
+            Table[Int](
+              tableName,
+              using(meta.getColumns(database, null, tableName, "%")) { rs =>
+                readResultset(rs)(rs => Column(rs.getString("COLUMN_NAME"), rs.getInt("DATA_TYPE")))
+              }
+            )
+          }
+      }
+    )
+  }
+
+  @tailrec
+  private def readResultset[T](rs: ResultSet, acc: Set[T] = Set.empty[T])(extractFunction: ResultSet => T): Set[T] =
+    if (rs.next())
+      readResultset(rs, acc + extractFunction(rs))(extractFunction)
+    else
+      acc
+
 }

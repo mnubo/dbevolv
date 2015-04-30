@@ -1,9 +1,11 @@
-package com.mnubo.dbschemas
+package com.mnubo
+package dbschemas
 
 import java.text.SimpleDateFormat
 import java.util.Date
 
-import com.datastax.driver.core.Cluster
+import com.datastax.driver.core.{Session, Cluster}
+import com.mnubo.test_utils.cassandra.DockerCassandra
 import com.typesafe.config.Config
 import org.joda.time.{DateTimeZone, DateTime}
 
@@ -117,12 +119,33 @@ class CassandraConnection(schemaName: String, hosts: String, port: Int, keyspace
   override def isSchemaValid: Boolean = {
     val currentVersion = getInstalledMigrationVersions.map(_.version).toSeq.sorted.last
 
-    val currentTables = cluster
-      .getMetadata
-      .getKeyspace(keyspace)
-      .getTables
-      .asScala
+    val currentSchema = schema(session)
 
-    ???
+    val expectedSchema = using(DockerCassandra(schemaName, currentVersion))(cass => schema(cass.client))
+
+    expectedSchema.isCompatibleWith(currentSchema)
   }
+
+  private def schema(session: Session) =
+    Schema(
+      session
+        .getCluster
+        .getMetadata
+        .getKeyspace(keyspace)
+        .getTables
+        .asScala
+        .map { tbl =>
+          Table(
+            tbl.getName,
+            tbl
+              .getColumns
+              .asScala
+              .map { c =>
+                Column(c.getName, c.getType.getName.toString)
+              }
+              .toSet
+          )
+        }
+    )
 }
+

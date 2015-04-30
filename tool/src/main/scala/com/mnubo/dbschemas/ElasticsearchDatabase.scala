@@ -1,24 +1,21 @@
-package com.mnubo.dbschemas
+package com.mnubo
+package dbschemas
 
 import java.text.SimpleDateFormat
 import java.util.Date
+import java.util.{Map => JMap}
 
-import com.datastax.driver.core.Cluster
+import com.mnubo.test_utils.elasticsearch.DockerElasticsearch
 import com.typesafe.config.Config
-import org.elasticsearch.action.admin.indices.create.CreateIndexRequest
-import org.elasticsearch.action.admin.indices.delete.DeleteIndexRequest
-import org.elasticsearch.action.admin.indices.exists.indices.{IndicesExistsRequest, IndicesExistsRequestBuilder}
-import org.elasticsearch.action.admin.indices.exists.types.TypesExistsRequest
-import org.elasticsearch.action.admin.indices.mapping.put.PutMappingRequest
 import org.elasticsearch.client.transport.TransportClient
-import org.elasticsearch.common.settings.{ImmutableSettings, Settings}
+import org.elasticsearch.cluster.metadata.MappingMetaData
+import org.elasticsearch.common.settings.ImmutableSettings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.index.query.QueryBuilders
-import org.joda.time.{DateTimeZone, DateTime}
+import org.joda.time.{DateTime, DateTimeZone}
 
 import scala.collection.JavaConverters._
 import scala.util.Try
-import scala.util.control.NonFatal
 
 object ElasticsearchDatabase extends Database {
   val name = "elasticsearch"
@@ -167,6 +164,42 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, inde
       .get
       .isExists
 
-  override def isSchemaValid: Boolean =
-    true // TODO
+  override def isSchemaValid: Boolean = {
+    val currentVersion = getInstalledMigrationVersions.map(_.version).toSeq.sorted.last
+
+    val currentSchema = schema(client)
+
+    val expectedSchema = using(DockerElasticsearch(schemaName, currentVersion))(cass => schema(cass.client))
+
+    expectedSchema.isCompatibleWith(currentSchema)
+  }
+
+  private def schema(client: TransportClient): Schema[Map[String, String]] =
+    Schema(
+      client
+        .admin
+        .indices
+        .prepareGetMappings(indexName)
+        .get
+        .mappings.asScala
+        .head // Only one index
+        .value
+        .asInstanceOf[java.util.Map[String, MappingMetaData]]
+        .asScala
+        .map { case (typeName, typeMappings) =>
+          Table[Map[String, String]](
+            typeName,
+            typeMappings
+              .getSourceAsMap
+              .get("properties")
+              .asInstanceOf[JMap[String, JMap[String, String]]]
+              .asScala
+              .mapValues(_.asScala)
+              .map { case (fieldName, fieldMapping) =>
+                Column(fieldName, Map(fieldMapping.toSeq: _*))
+              }
+              .toSet
+          )
+        }
+    )
 }
