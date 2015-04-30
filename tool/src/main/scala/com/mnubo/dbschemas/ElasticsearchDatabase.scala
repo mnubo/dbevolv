@@ -166,4 +166,7 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, inde
       .prepareExists(indexName)
       .get
       .isExists
+
+  override def isSchemaValid: Boolean =
+    true // TODO
 }

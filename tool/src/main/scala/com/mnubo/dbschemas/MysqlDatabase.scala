@@ -111,4 +111,6 @@ class MysqlConnection(schemaName: String,
         false
     }
 
+  override def isSchemaValid: Boolean =
+    true // TODO
 }

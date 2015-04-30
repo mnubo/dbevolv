@@ -114,4 +114,15 @@ class CassandraConnection(schemaName: String, hosts: String, port: Int, keyspace
         false
     }
 
+  override def isSchemaValid: Boolean = {
+    val currentVersion = getInstalledMigrationVersions.map(_.version).toSeq.sorted.last
+
+    val currentTables = cluster
+      .getMetadata
+      .getKeyspace(keyspace)
+      .getTables
+      .asScala
+
+    ???
+  }
 }

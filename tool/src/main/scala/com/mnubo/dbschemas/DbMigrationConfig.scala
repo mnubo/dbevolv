@@ -12,6 +12,7 @@ case class DbMigrationConfig(db: Database,
                              createDatabaseStatement: String,
                              drop: Boolean,
                              version: Option[String],
+                             skipSchemaVerification: Boolean,
                              wholeConfig: Config)
 
 case class DbSchemasArgsConfig(drop: Boolean = false,
@@ -44,6 +45,7 @@ object DbMigrationConfig {
       config.getString("create_database_statement").replace("@@DATABASE_NAME@@", name),
       args.drop,
       args.version,
+      skipSchemaVerification = false,
       config
     )
   }}
