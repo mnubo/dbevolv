@@ -9,7 +9,7 @@ import com.typesafe.config.{ConfigParseOptions, ConfigFactory}
 
 object TestDatabaseBuilder extends App with Logging {
   val MnuboDockerRegistry = "dockerep-0.mtl.mnubo.com"
-  val doPush = if (args.length == 2) true else false
+  val doPush = if (args == Array("push")) true else false
   val defaultConfig = ConfigFactory.load(ConfigParseOptions.defaults().setClassLoader(getClass.getClassLoader))
   val config = MnuboConfiguration.loadConfig(
     ConfigFactory
