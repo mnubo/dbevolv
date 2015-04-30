@@ -9,8 +9,7 @@ import com.typesafe.config.{ConfigParseOptions, ConfigFactory}
 
 object TestDatabaseBuilder extends App with Logging {
   val MnuboDockerRegistry = "dockerep-0.mtl.mnubo.com"
-  val schemaBuildVersion = args(0)
-  val doPush = if (args.size == 2) true else false
+  val doPush = if (args.length == 2) true else false
   val defaultConfig = ConfigFactory.load(ConfigParseOptions.defaults().setClassLoader(getClass.getClassLoader))
   val config = MnuboConfiguration.loadConfig(
     ConfigFactory
@@ -32,7 +31,7 @@ object TestDatabaseBuilder extends App with Logging {
   )
 
   logInfo(s"Creating and migrating test database '$schemaName' to latest version ...")
-  DatabaseMigrator.migrate(DbMigrationConfig(
+  val schemaVersion = DatabaseMigrator.migrate(DbMigrationConfig(
     db,
     schemaName,
     Docker.dockerHost,
@@ -41,20 +40,21 @@ object TestDatabaseBuilder extends App with Logging {
     db.testDockerBaseImage.password,
     schemaName,
     config.getString("create_database_statement").replace("@@DATABASE_NAME@@", schemaName),
-    false,
+    drop = false,
     None,
+    skipSchemaVerification = true,
     config
   ))
 
   logInfo(s"Commiting $dbKind $schemaName test instance ...")
   Docker.stop(container.id)
-  val imageId = Docker.commit(container.id, repositoryName, schemaBuildVersion)
+  val imageId = Docker.commit(container.id, repositoryName, schemaVersion)
 
   logInfo(s"Cleaning up container ${container.id} ...")
   Docker.remove(container.id)
 
   if (doPush) {
-    logInfo(s"Publishing $dbKind $schemaName test instance to $repositoryName:$schemaBuildVersion ...")
+    logInfo(s"Publishing $dbKind $schemaName test instance to $repositoryName:$schemaVersion ...")
     Docker.push(repositoryName)
 
     logInfo(s"Cleaning up image $imageId ...")
