@@ -124,6 +124,16 @@ Note: you can also use this trick in downgrade scripts.
 
 If your custom script needs additional dependencies, you can add them in a `build.sbt` file through the libraryDependencies SBT key. See [SBT documentation](http://www.scala-sbt.org/0.13/docs/Library-Management.html)
 
+Migration design guidelines
+---------------------------
+
+You migrations MUST be (and will be tested for):
+
+* **Idempotency**. The schema manager _must_ be able to run a migration twice without any effect on the end result. This is critical when something goes wrong during the application on a migration in production. We must be able to retry a fixed version of a faulty migration, or the same migration after a corruption is fixed.
+* **Perfect rollback**. When we have dozens of namespaces, the likelyhood of failure in one of them is great. In that case, the schema manager _must_ be able to rollback all the already migrated namespaces to stay consistent. Even if the upgrades involved a loss of information. In that situation, the upgrade must store the lost information somewhere to be able to retrieve it when rolling back.
+* **Immutable in production**. Once a migration has been applied to production, you cannot modify the migration anymore. If you do, the schema manager will refuse to execute any further migrations.
+* **Forward compatible for the application in production**. Obviously, it must not break the current version of the application. In other words, your migration must support both the new and the old version of your application.
+
 Computing the database name / schema name / index name / keyspace (depending on underlying db kind)
 ---------------------------------------------------------------------------------------------------
 
@@ -189,6 +199,12 @@ This should result to something like:
       docker run -it --rm -e ENV=dev dockerep-0.mtl.mnubo.com/enrichment:latest --version 0004
       
 Note: the help message is slightly different for the databases that don't have one instance by namespace (global databases).
+
+### Behaviour
+
+The schema manager will upgrade one namespace at a time. For each namespace, it will apply (or downgrade) all the necessary migration to reach the target version. If one of the namespaces upgrade fail, it stopped. It is recommended to rollback all namespaces to the origin version immediately, so the faulty migration could be fixed and reapplied to all of the migrations. Since migrations are checksumed, you cannot have a system with different flavours of the same migrations. This would make any subsequent upgrades or downgrades to fail immediately.
+
+The schema manager will also perform some validation before starting to upgrade. It will check that the schema of the target instance match the expected schema (tables, columns, types).
 
 Inspecting the migrations inside a schema manager
 -------------------------------------------------

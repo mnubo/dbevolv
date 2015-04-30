@@ -34,6 +34,7 @@ class CassandraNamespaceRepository(config: Config) extends NamespaceRepository {
           .all
           .asScala
           .map(_.getString("namespace"))
+          .sorted
       }
     }
   }

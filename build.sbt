@@ -14,6 +14,7 @@ lazy val tool = (project in file("tool"))
       "org.elasticsearch"       %  "elasticsearch"          % "1.4.4" % "provided",
       "mysql"                   %  "mysql-connector-java"   % "5.1.35" % "provided",
       "joda-time"               %  "joda-time"              % "2.7",
+      "com.mnubo"               %  "test-utils"             % "[1.0.0,)",
       "org.joda"                %  "joda-convert"           % "1.7",
       "com.mnubo"               %  "app-util"               % "[1.0.0,)" changing(),
       "com.github.scopt"        %% "scopt"                  % "3.3.0"

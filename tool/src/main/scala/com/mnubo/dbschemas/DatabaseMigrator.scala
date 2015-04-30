@@ -8,7 +8,7 @@ import com.mnubo.app_util.Logging
 import scala.io.Source
 
 object DatabaseMigrator extends Logging {
-  def migrate(config: DbMigrationConfig): Unit = {
+  def migrate(config: DbMigrationConfig): String = {
     import config._
 
     log.info(s"Will upgrade $name @ $host to ${version.getOrElse("latest")} version.")
@@ -24,11 +24,11 @@ object DatabaseMigrator extends Logging {
       wholeConfig
     )) { connection =>
       if (drop) connection.dropDatabase
-      migrate(connection, name, version)
+      migrate(connection, name, version, skipSchemaVerification)
     }
   }
 
-  private def migrate(connection: DatabaseConnection, name: String, targetVersion: Option[String]): Unit = {
+  private def migrate(connection: DatabaseConnection, name: String, targetVersion: Option[String], skipSchemaVerification: Boolean): String = {
     val availableMigrations = getAvailableMigrations
     val installedMigrations = connection.getInstalledMigrationVersions.map(_.version)
     val target = targetVersion.getOrElse(availableMigrations.last)
@@ -55,12 +55,17 @@ object DatabaseMigrator extends Logging {
     if (currentIndex > targetIndex)
       downgrade(connection, name, availableMigrations.slice(targetIndex + 1, currentIndex + 1).reverse)
     else if (currentIndex < targetIndex)
-      upgrade(connection, name, availableMigrations.slice(currentIndex + 1, targetIndex + 1))
+      upgrade(connection, name, availableMigrations.slice(currentIndex + 1, targetIndex + 1), skipSchemaVerification)
     else
       () // Nothing to do, already at the right target version
+
+    target
   }
 
-  private def upgrade(connection: DatabaseConnection, name: String, steps: Seq[String]) = {
+  private def upgrade(connection: DatabaseConnection, name: String, steps: Seq[String], skipSchemaVerification: Boolean) = {
+    if (!skipSchemaVerification && !connection.isSchemaValid)
+      throw new Exception(s"Oops, it seems the target schema of $name is not what it should be... Please call your dearest developer for helping de-corrupting the database.")
+
     for {
       step <- steps
       stmtFile = findStatementFile(step, "upgrade.")

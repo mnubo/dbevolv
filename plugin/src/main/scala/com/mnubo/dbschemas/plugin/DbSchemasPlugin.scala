@@ -116,9 +116,9 @@ object DbSchemasPlugin extends AutoPlugin {
     val cp = (fullClasspath in Compile).value
     val args =
       if (doPush)
-        Seq(version.value, "push")
+        Seq("push")
       else
-        Seq(version.value)
+        Seq()
     val scalaRun = (runner in run).value
 
     sbt.Defaults.toError(scalaRun.run(
