@@ -44,6 +44,7 @@ object TestDatabaseBuilder extends App with Logging {
       drop = false,
       None,
       skipSchemaVerification = true,
+      applyUpgradesTwice = true,
       config
     ))
 
@@ -54,7 +55,7 @@ object TestDatabaseBuilder extends App with Logging {
     val imageId = Docker.commit(container.id, repositoryName, schemaVersion)
 
     logInfo(s"Testing rollback procedures...")
-    Docker.start(container.id)
+    Docker.start(container.id, db.isStarted)
     DatabaseMigrator.migrate(DbMigrationConfig(
       db,
       schemaName,
@@ -67,6 +68,7 @@ object TestDatabaseBuilder extends App with Logging {
       drop = false,
       Some(report.startingVersion),
       skipSchemaVerification = true,
+      applyUpgradesTwice = false,
       config
     ))
 
