@@ -66,6 +66,8 @@ object DatabaseMigrator extends Logging {
     if (!skipSchemaVerification && !connection.isSchemaValid)
       throw new Exception(s"Oops, it seems the target schema of $name is not what it should be... Please call your dearest developer for helping de-corrupting the database.")
 
+    log.info("Will apply the following migrations: " + steps.mkString(", "))
+
     for {
       step <- steps
       stmtFile = findStatementFile(step, "upgrade.")
@@ -78,6 +80,8 @@ object DatabaseMigrator extends Logging {
   }
 
   private def downgrade(connection: DatabaseConnection, name: String, steps: Seq[String]) = {
+    log.info("Will apply the following migrations: " + steps.mkString(", "))
+
     for {
       step <- steps
       stmtFile = findStatementFile(step, "downgrade.")
