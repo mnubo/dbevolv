@@ -71,15 +71,19 @@ class CassandraConnection(schemaName: String, hosts: String, port: Int, keyspace
     ensureVersionTable()
 
     session
-      .execute(s"SELECT migration_version, migration_date FROM ${schemaName}_version")
+      .execute(s"SELECT migration_version, migration_date, checksum FROM ${schemaName}_version")
       .all()
       .asScala
-      .map(row => InstalledVersion(row.getString("migration_version"), new DateTime(row.getDate("migration_date").getTime).withZone(DateTimeZone.UTC)))
+      .map(row => InstalledVersion(
+        row.getString("migration_version"),
+        new DateTime(row.getDate("migration_date").getTime).withZone(DateTimeZone.UTC),
+        row.getString("checksum")
+      ))
       .toSet
   }
 
-  override def markMigrationAsInstalled(migrationVersion: String) =
-    execute(s"INSERT INTO ${schemaName}_version (migration_version, migration_date) VALUES ('$migrationVersion', '${df.format(new Date())}')")
+  override def markMigrationAsInstalled(migrationVersion: String, checksum: String) =
+    execute(s"INSERT INTO ${schemaName}_version (migration_version, migration_date, checksum) VALUES ('$migrationVersion', '${df.format(new Date())}', '$checksum')")
 
   override def markMigrationAsUninstalled(migrationVersion: String) =
     execute(s"DELETE FROM ${schemaName}_version WHERE migration_version = '$migrationVersion'")
@@ -94,7 +98,7 @@ class CassandraConnection(schemaName: String, hosts: String, port: Int, keyspace
 
   private def ensureVersionTable() =
     if (!hasVersionTable)
-      execute(s"CREATE TABLE ${schemaName}_version (migration_version TEXT, migration_date TIMESTAMP, PRIMARY KEY (migration_version))")
+      execute(s"CREATE TABLE ${schemaName}_version (migration_version TEXT, migration_date TIMESTAMP, checksum TEXT, PRIMARY KEY (migration_version))")
 
   private def hasVersionTable =
     try {
@@ -117,13 +121,19 @@ class CassandraConnection(schemaName: String, hosts: String, port: Int, keyspace
     }
 
   override def isSchemaValid: Boolean = {
-    val currentVersion = getInstalledMigrationVersions.map(_.version).toSeq.sorted.last
+    val installed = getInstalledMigrationVersions.map(_.version).toSeq.sorted
 
-    val currentSchema = schema(session)
+    if (installed.isEmpty) // Fixing MM-2961
+      true // Not really true, but impossible to verify.
+    else {
+      val currentVersion = installed.last
 
-    val expectedSchema = using(DockerCassandra(schemaName, currentVersion))(cass => schema(cass.client))
+      val currentSchema = schema(session)
 
-    expectedSchema.isCompatibleWith(currentSchema)
+      val expectedSchema = using(DockerCassandra(schemaName, currentVersion))(cass => schema(cass.client))
+
+      expectedSchema.isCompatibleWith(currentSchema)
+    }
   }
 
   private def schema(session: Session) =

@@ -4,6 +4,7 @@ package dbschemas
 import java.io.{FileFilter, File}
 
 import com.mnubo.app_util.Logging
+import com.mnubo.dbschemas.util.MD5
 
 import scala.io.Source
 
@@ -36,13 +37,16 @@ object DatabaseMigrator extends Logging {
 
   private def migrate(ctx: MigrationContext): MigrationReport = {
     val availableMigrations = getAvailableMigrations
-    val installedMigrations = ctx.connection.getInstalledMigrationVersions.map(_.version)
+    val installedMigrations = ctx.connection.getInstalledMigrationVersions
+    validateInstalledMigrations(installedMigrations)
+
+    val installedMigrationVersions = installedMigrations.map(_.version)
     val target = ctx.targetVersion.getOrElse(availableMigrations.last)
 
     val currentIndex =
       availableMigrations
         .zipWithIndex
-        .find { case (v, i) => !installedMigrations.contains(v) }
+        .find { case (v, i) => !installedMigrationVersions.contains(v) }
         .map(_._2)
         .getOrElse(availableMigrations.size) - 1
 
@@ -68,6 +72,17 @@ object DatabaseMigrator extends Logging {
     MigrationReport(if (currentIndex < 0) availableMigrations.head else availableMigrations(currentIndex), target)
   }
 
+  private def validateInstalledMigrations(installedMigrations: Set[InstalledVersion]) = {
+    for {
+      InstalledVersion(version, _, checksum) <- installedMigrations.toSeq.sortBy(_.version)
+      if checksum != null && !checksum.isEmpty
+      currentChecksum = MD5.forStatementFile(version, "upgrade.")
+    } {
+      if (checksum != currentChecksum)
+        throw new Exception(s"Schema manager migration $version has been tampered with. Installed checksum: $checksum. Schema manager checksum: $currentChecksum")
+    }
+  }
+
   private def upgrade(ctx: MigrationContext, steps: Seq[String]) = {
     import ctx._
 
@@ -78,8 +93,8 @@ object DatabaseMigrator extends Logging {
 
     for {
       step <- steps
-      stmtFile = findStatementFile(step, "upgrade.")
-      stmts = parseStatements(stmtFile)
+      stmtFile = StatementFiles.findStatementFile(step, "upgrade.")
+      stmts = StatementFiles.parseStatements(stmtFile)
     } {
       logInfo(s"Executing upgrade $step")
       stmts.foreach(_.execute(connection, name))
@@ -88,7 +103,7 @@ object DatabaseMigrator extends Logging {
         logInfo(s"Checking upgrade $step is idempotent")
         stmts.foreach(_.execute(connection, name))
       }
-      connection.markMigrationAsInstalled(step)
+      connection.markMigrationAsInstalled(step, MD5.forStatements(stmtFile, stmts))
     }
   }
 
@@ -99,38 +114,13 @@ object DatabaseMigrator extends Logging {
 
     for {
       step <- steps
-      stmtFile = findStatementFile(step, "downgrade.")
-      stmts = parseStatements(stmtFile)
+      stmtFile = StatementFiles.findStatementFile(step, "downgrade.")
+      stmts = StatementFiles.parseStatements(stmtFile)
     } {
       stmts.foreach(_.execute(connection, name))
       connection.markMigrationAsUninstalled(step)
     }
   }
-
-  private def parseStatements(stmtFile: File) =
-    Source
-      .fromFile(stmtFile)
-      .getLines()
-      .filterNot(_.trim.isEmpty)
-      .filterNot(_.startsWith("#"))
-      .mkString(" ")
-      .split(";")
-      .filterNot(_.isEmpty) // mkString is at least producing an empty string, so have to refilter empty lines.
-      .map { line =>
-        if (line.startsWith("@@"))
-          ClassStatement(line.replace("@@", ""))
-        else
-          StringStatement(line)
-      }
-
-  private def findStatementFile(step: String, stmtType: String) =
-    new File(s"migrations/$step")
-      .listFiles(new FileFilter {
-        override def accept(pathname: File) =
-          pathname.isFile && !pathname.isHidden
-      })
-      .find(_.getName.startsWith(stmtType))
-      .get
 
   private def getAvailableMigrations: Seq[String] =
     new File("migrations")
@@ -140,24 +130,6 @@ object DatabaseMigrator extends Logging {
       })
       .map(_.getName)
       .sorted
-
-  private sealed trait Statement {
-    def execute(conn: DatabaseConnection, databaseName: String)
-  }
-
-  private case class StringStatement(statementText: String) extends Statement {
-    override def execute(conn: DatabaseConnection, databaseName: String) =
-      conn.execute(statementText)
-  }
-
-  private case class ClassStatement(className: String) extends Statement {
-    private val c = getClass.getClassLoader.loadClass(className)
-    private val scripInstance = c.newInstance()
-    private val executeMethod = c.getMethods.find(_.getName == "execute").get
-
-    override def execute(conn: DatabaseConnection, databaseName: String) =
-      executeMethod.invoke(scripInstance, conn.innerConnection, databaseName)
-  }
 }
 
 case class MigrationReport(startingVersion: String, migratedToVersion: String)

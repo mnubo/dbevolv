@@ -65,23 +65,24 @@ class MysqlConnection(schemaName: String,
 
     val rs = connection
       .createStatement()
-      .executeQuery(s"SELECT migration_version, migration_date FROM ${schemaName}_version")
+      .executeQuery(s"SELECT migration_version, migration_date, checksum FROM ${schemaName}_version")
 
     def readVersion = rs.getString("migration_version")
+    def readChecksum = rs.getString("checksum")
     def readDate = new DateTime(rs.getDate("migration_date").getTime).withZone(DateTimeZone.UTC)
 
     @tailrec
     def readResultset(acc: Set[InstalledVersion] = Set.empty[InstalledVersion]): Set[InstalledVersion] =
       if (rs.next())
-        readResultset(acc + InstalledVersion(readVersion, readDate))
+        readResultset(acc + InstalledVersion(readVersion, readDate, readChecksum))
       else
         acc
 
     readResultset()
   }
 
-  override def markMigrationAsInstalled(migrationVersion: String) =
-    execute(s"INSERT INTO ${schemaName}_version (migration_version, migration_date) VALUES ('$migrationVersion', '${df.format(new Date())}')")
+  override def markMigrationAsInstalled(migrationVersion: String, checksum: String) =
+    execute(s"INSERT INTO ${schemaName}_version (migration_version, migration_date, checksum) VALUES ('$migrationVersion', '${df.format(new Date())}', '$checksum')")
 
   override def markMigrationAsUninstalled(migrationVersion: String) =
     execute(s"DELETE FROM ${schemaName}_version WHERE migration_version = '$migrationVersion'")
@@ -91,7 +92,7 @@ class MysqlConnection(schemaName: String,
 
   private def ensureVersionTable() =
     if (!hasVersionTable)
-      execute(s"CREATE TABLE ${schemaName}_version (migration_version VARCHAR(255) NOT NULL, migration_date DATETIME NOT NULL, PRIMARY KEY (migration_version))")
+      execute(s"CREATE TABLE ${schemaName}_version (migration_version VARCHAR(255) NOT NULL, migration_date DATETIME NOT NULL, checksum VARCHAR(255), PRIMARY KEY (migration_version))")
 
   private def hasVersionTable =
     try {
@@ -114,13 +115,19 @@ class MysqlConnection(schemaName: String,
     }
 
   override def isSchemaValid: Boolean = {
-    val currentVersion = getInstalledMigrationVersions.map(_.version).toSeq.sorted.last
+    val installed = getInstalledMigrationVersions.map(_.version).toSeq.sorted
 
-    val currentSchema = schema(connection)
+    if (installed.isEmpty)
+      true
+    else {
+      val currentVersion = installed.last
 
-    val expectedSchema = using(DockerMySQL(schemaName, currentVersion))(mysql => schema(mysql.client))
+      val currentSchema = schema(connection)
 
-    expectedSchema.isCompatibleWith(currentSchema)
+      val expectedSchema = using(DockerMySQL(schemaName, currentVersion))(mysql => schema(mysql.client))
+
+      expectedSchema.isCompatibleWith(currentSchema)
+    }
   }
 
   private def schema(connection: Connection): Schema[Int] = {

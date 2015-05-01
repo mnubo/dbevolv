@@ -68,6 +68,7 @@ object DbSchemasPlugin extends AutoPlugin {
         Add(CopyFile(artifact), artifactTargetPath),
         Add(CopyFile(new File("db.conf")), "/app/db.conf"),
         Add(CopyFile(new File("migrations")), "/app/migrations/"),
+        Add(CopyFile(new File("src")), "/app/src/"),
         WorkDir("/app"),
         EntryPoint.exec(Seq("java", "-jar", artifactTargetPath))
       ))
