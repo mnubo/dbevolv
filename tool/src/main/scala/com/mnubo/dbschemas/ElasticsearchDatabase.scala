@@ -31,7 +31,7 @@ object ElasticsearchDatabase extends Database {
     new ElasticsearchConnection(schemaName, hosts, if (port > 0) port else 9300, indexName, config)
 
   override def testDockerBaseImage =
-    DatabaseDockerImage("dockerep-0.mtl.mnubo.com/test-elasticsearch:1.4.4", 9300, "", "")
+    DatabaseDockerImage("dockerep-0.mtl.mnubo.com/test-elasticsearch:1.5.2", 9300, "", "")
 
   override def isStarted(log: String) =
     log.contains("] started")
@@ -169,24 +169,28 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, inde
 
     val currentSchema = schema(client)
 
-    val expectedSchema = using(DockerElasticsearch(schemaName, currentVersion))(cass => schema(cass.client))
+    val expectedSchema = using(DockerElasticsearch(schemaName, currentVersion)) { es =>
+      schema(es.client)
+    }
 
     expectedSchema.isCompatibleWith(currentSchema)
   }
 
-  private def schema(client: TransportClient): Schema[Map[String, String]] =
+  private def schema(client: TransportClient): Schema[Map[String, String]] = {
+    val response = client
+      .admin
+      .indices
+      .prepareGetMappings(indexName)
+      .get
+
     Schema(
-      client
-        .admin
-        .indices
-        .prepareGetMappings(indexName)
-        .get
+      response
         .mappings.asScala
         .head // Only one index
         .value
-        .asInstanceOf[java.util.Map[String, MappingMetaData]]
         .asScala
-        .map { case (typeName, typeMappings) =>
+        .map { cursor =>
+          val (typeName, typeMappings) = (cursor.key, cursor.value)
           Table[Map[String, String]](
             typeName,
             typeMappings
@@ -202,4 +206,5 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, inde
           )
         }
     )
+  }
 }

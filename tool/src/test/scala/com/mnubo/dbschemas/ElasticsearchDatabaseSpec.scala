@@ -10,29 +10,29 @@ import org.scalatest.{Matchers, WordSpec}
 
 class ElasticsearchDatabaseSpec extends WordSpec with Matchers {
   "An Elasticsearch database abstraction" should {
-    "manage the list of installed migrations" ignore withSut { sut =>
+    "manage the list of installed migrations" in withSut { sut =>
       sut
         .getInstalledMigrationVersions
         .map(_.version)
-        .toSeq.sorted shouldEqual Seq("V0_4_1_2", "V0_5_0_0")
+        .toSeq.sorted shouldEqual Seq("0001")
 
       sut
-        .markMigrationAsInstalled("V0_6_0_0")
-
-      sut
-        .getInstalledMigrationVersions
-        .map(_.version)
-        .toSeq.sorted shouldEqual Seq("V0_4_1_2", "V0_5_0_0", "V0_6_0_0")
-
-      sut
-        .markMigrationAsUninstalled("V0_6_0_0")
+        .markMigrationAsInstalled("0002")
 
       sut
         .getInstalledMigrationVersions
         .map(_.version)
-        .toSeq.sorted shouldEqual Seq("V0_4_1_2", "V0_5_0_0")
+        .toSeq.sorted shouldEqual Seq("0001", "0002")
+
+      sut
+        .markMigrationAsUninstalled("0002")
+
+      sut
+        .getInstalledMigrationVersions
+        .map(_.version)
+        .toSeq.sorted shouldEqual Seq("0001")
     }
-    "detect that a schema is compatible" ignore withSut { sut =>
+    "detect that a schema is compatible" in withSut { sut =>
       sut.isSchemaValid shouldBe true
 
       sut
