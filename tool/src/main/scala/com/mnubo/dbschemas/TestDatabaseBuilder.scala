@@ -30,36 +30,57 @@ object TestDatabaseBuilder extends App with Logging {
     additionalOptions = db.testDockerBaseImage.additionalOptions
   )
 
-  logInfo(s"Creating and migrating test database '$schemaName' to latest version ...")
-  val schemaVersion = DatabaseMigrator.migrate(DbMigrationConfig(
-    db,
-    schemaName,
-    Docker.dockerHost,
-    container.realPort,
-    db.testDockerBaseImage.username,
-    db.testDockerBaseImage.password,
-    schemaName,
-    config.getString("create_database_statement").replace("@@DATABASE_NAME@@", schemaName),
-    drop = false,
-    None,
-    skipSchemaVerification = true,
-    config
-  ))
+  try {
+    logInfo(s"Creating and migrating test database '$schemaName' to latest version ...")
+    val report = DatabaseMigrator.migrate(DbMigrationConfig(
+      db,
+      schemaName,
+      Docker.dockerHost,
+      container.realPort,
+      db.testDockerBaseImage.username,
+      db.testDockerBaseImage.password,
+      schemaName,
+      config.getString("create_database_statement").replace("@@DATABASE_NAME@@", schemaName),
+      drop = false,
+      None,
+      skipSchemaVerification = true,
+      config
+    ))
 
-  logInfo(s"Commiting $dbKind $schemaName test instance to $repositoryName:$schemaVersion...")
-  Docker.stop(container.id)
-  val imageId = Docker.commit(container.id, repositoryName, schemaVersion)
+    val schemaVersion = report.migratedToVersion
 
+    logInfo(s"Commiting $dbKind $schemaName test instance to $repositoryName:$schemaVersion...")
+    Docker.stop(container.id)
+    val imageId = Docker.commit(container.id, repositoryName, schemaVersion)
 
+    logInfo(s"Testing rollback procedures...")
+    Docker.start(container.id)
+    DatabaseMigrator.migrate(DbMigrationConfig(
+      db,
+      schemaName,
+      Docker.dockerHost,
+      container.realPort,
+      db.testDockerBaseImage.username,
+      db.testDockerBaseImage.password,
+      schemaName,
+      config.getString("create_database_statement").replace("@@DATABASE_NAME@@", schemaName),
+      drop = false,
+      Some(report.startingVersion),
+      skipSchemaVerification = true,
+      config
+    ))
 
-  logInfo(s"Cleaning up container ${container.id} ...")
-  Docker.remove(container.id)
+    if (doPush) {
+      logInfo(s"Publishing $dbKind $schemaName test instance to $repositoryName:$schemaVersion ...")
+      Docker.push(s"$repositoryName:$schemaVersion")
 
-  if (doPush) {
-    logInfo(s"Publishing $dbKind $schemaName test instance to $repositoryName:$schemaVersion ...")
-    Docker.push(s"$repositoryName:$schemaVersion")
-
-    logInfo(s"Cleaning up image $imageId ...")
-    Docker.removeImage(imageId)
+      logInfo(s"Cleaning up image $imageId ...")
+      Docker.removeImage(imageId)
+    }
+  }
+  finally {
+    logInfo(s"Cleaning up container ${container.id} ...")
+    Docker.stop(container.id)
+    Docker.remove(container.id)
   }
 }

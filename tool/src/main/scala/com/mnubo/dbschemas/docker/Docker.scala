@@ -43,6 +43,9 @@ object Docker extends Logging {
   def stop(container: String) =
     exec(s"docker stop $container")
 
+  def start(container: String) =
+    exec(s"docker start $container")
+
   def commit(container: String, repository: String, tag: String): String = {
     val imageId =
       execAndRead(s"docker commit $container $repository:$tag")

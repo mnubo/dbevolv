@@ -8,7 +8,7 @@ import com.mnubo.app_util.Logging
 import scala.io.Source
 
 object DatabaseMigrator extends Logging {
-  def migrate(config: DbMigrationConfig): String = {
+  def migrate(config: DbMigrationConfig): MigrationReport = {
     import config._
 
     log.info(s"Will upgrade $name @ $host to ${version.getOrElse("latest")} version.")
@@ -28,7 +28,7 @@ object DatabaseMigrator extends Logging {
     }
   }
 
-  private def migrate(connection: DatabaseConnection, name: String, targetVersion: Option[String], skipSchemaVerification: Boolean): String = {
+  private def migrate(connection: DatabaseConnection, name: String, targetVersion: Option[String], skipSchemaVerification: Boolean): MigrationReport = {
     val availableMigrations = getAvailableMigrations
     val installedMigrations = connection.getInstalledMigrationVersions.map(_.version)
     val target = targetVersion.getOrElse(availableMigrations.last)
@@ -59,7 +59,7 @@ object DatabaseMigrator extends Logging {
     else
       () // Nothing to do, already at the right target version
 
-    target
+    MigrationReport(if (currentIndex < 0) availableMigrations.head else availableMigrations(currentIndex), target)
   }
 
   private def upgrade(connection: DatabaseConnection, name: String, steps: Seq[String], skipSchemaVerification: Boolean) = {
@@ -144,3 +144,5 @@ object DatabaseMigrator extends Logging {
       executeMethod.invoke(scripInstance, conn.innerConnection, databaseName)
   }
 }
+
+case class MigrationReport(startingVersion: String, migratedToVersion: String)
