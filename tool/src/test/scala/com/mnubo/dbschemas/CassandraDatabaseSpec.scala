@@ -8,7 +8,7 @@ import org.scalatest.{Matchers, WordSpec}
 
 class CassandraDatabaseSpec extends WordSpec with Matchers {
   "A Cassandra database abstraction" should {
-    "manage the list of installed migrations" in withSut { sut =>
+    "manage the list of installed migrations" ignore withSut { sut =>
       sut
         .getInstalledMigrationVersions
         .map(_.version)
