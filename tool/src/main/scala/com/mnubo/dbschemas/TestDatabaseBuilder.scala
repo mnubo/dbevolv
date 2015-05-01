@@ -9,7 +9,7 @@ import com.typesafe.config.{ConfigParseOptions, ConfigFactory}
 
 object TestDatabaseBuilder extends App with Logging {
   val MnuboDockerRegistry = "dockerep-0.mtl.mnubo.com"
-  val doPush = if (args == Array("push")) true else false
+  val doPush = if (args contains "push") true else false
   val defaultConfig = ConfigFactory.load(ConfigParseOptions.defaults().setClassLoader(getClass.getClassLoader))
   val config = MnuboConfiguration.loadConfig(
     ConfigFactory
@@ -57,7 +57,7 @@ object TestDatabaseBuilder extends App with Logging {
 
   if (doPush) {
     logInfo(s"Publishing $dbKind $schemaName test instance to $repositoryName:$schemaVersion ...")
-    Docker.push(repositoryName)
+    Docker.push(s"$repositoryName:$schemaVersion")
 
     logInfo(s"Cleaning up image $imageId ...")
     Docker.removeImage(imageId)

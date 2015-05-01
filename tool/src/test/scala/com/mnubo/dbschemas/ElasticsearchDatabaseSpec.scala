@@ -3,12 +3,14 @@ package dbschemas
 
 import com.mnubo.dbschemas.docker.Docker
 import com.mnubo.test_utils.cassandra.DockerCassandra
+import com.mnubo.test_utils.elasticsearch.DockerElasticsearch
 import com.typesafe.config.ConfigFactory
+import org.elasticsearch.client.transport.TransportClient
 import org.scalatest.{Matchers, WordSpec}
 
-class CassandraDatabaseSpec extends WordSpec with Matchers {
-  "A Cassandra database abstraction" should {
-    "manage the list of installed migrations" in withSut { sut =>
+class ElasticsearchDatabaseSpec extends WordSpec with Matchers {
+  "An Elasticsearch database abstraction" should {
+    "manage the list of installed migrations" ignore withSut { sut =>
       sut
         .getInstalledMigrationVersions
         .map(_.version)
@@ -30,24 +32,31 @@ class CassandraDatabaseSpec extends WordSpec with Matchers {
         .map(_.version)
         .toSeq.sorted shouldEqual Seq("V0_4_1_2", "V0_5_0_0")
     }
-    "detect that a schema is compatible" in withSut { sut =>
+    "detect that a schema is compatible" ignore withSut { sut =>
       sut.isSchemaValid shouldBe true
 
-      sut.execute("ALTER TABLE enrichment_objects RENAME id TO objid")
+      sut
+        .innerConnection
+        .asInstanceOf[TransportClient]
+        .admin
+        .indices
+        .prepareDeleteMapping("analytics_basic_index")
+        .setType("user")
+        .get
 
       sut.isSchemaValid shouldBe false
     }
   }
 
   def withSut(test: DatabaseConnection => Unit) = {
-    using(DockerCassandra("enrichment", "V0_5_0_0")) { cass =>
-      val sut = CassandraDatabase.openConnection(
-        "enrichment",
+    using(DockerElasticsearch("analytics_basic_index", "0001")) { es =>
+      val sut = ElasticsearchDatabase.openConnection(
+        "analytics_basic_index",
         Docker.dockerHost,
-        cass.port,
+        es.port,
         "",
         "",
-        "enrichment",
+        "analytics_basic_index",
         "",
         ConfigFactory.empty())
 
