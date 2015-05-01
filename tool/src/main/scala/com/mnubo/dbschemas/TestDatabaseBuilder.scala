@@ -46,7 +46,7 @@ object TestDatabaseBuilder extends App with Logging {
     config
   ))
 
-  logInfo(s"Commiting $dbKind $schemaName test instance ...")
+  logInfo(s"Commiting $dbKind $schemaName test instance to $repositoryName:$schemaVersion...")
   Docker.stop(container.id)
   val imageId = Docker.commit(container.id, repositoryName, schemaVersion)
 

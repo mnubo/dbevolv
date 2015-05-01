@@ -120,6 +120,7 @@ object DatabaseMigrator extends Logging {
           pathname.isDirectory && !pathname.isHidden
       })
       .map(_.getName)
+      .sorted
 
   private sealed trait Statement {
     def execute(conn: DatabaseConnection, databaseName: String)
