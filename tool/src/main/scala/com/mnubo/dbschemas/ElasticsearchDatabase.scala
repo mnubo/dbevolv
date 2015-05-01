@@ -2,13 +2,12 @@ package com.mnubo
 package dbschemas
 
 import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.{Map => JMap}
+import java.util.{Date, Map => JMap}
 
+import com.mnubo.app_util.Logging
 import com.mnubo.test_utils.elasticsearch.DockerElasticsearch
 import com.typesafe.config.Config
 import org.elasticsearch.client.transport.TransportClient
-import org.elasticsearch.cluster.metadata.MappingMetaData
 import org.elasticsearch.common.settings.ImmutableSettings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.index.query.QueryBuilders
@@ -37,7 +36,7 @@ object ElasticsearchDatabase extends Database {
     log.contains("] started")
 }
 
-class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, indexName: String, config: Config) extends DatabaseConnection {
+class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, indexName: String, config: Config) extends DatabaseConnection with Logging {
   private val client = {
     val addresses = hosts.split(",").map(new InetSocketTransportAddress(_, port))
 

@@ -13,6 +13,7 @@ case class DbMigrationConfig(db: Database,
                              drop: Boolean,
                              version: Option[String],
                              skipSchemaVerification: Boolean,
+                             applyUpgradesTwice: Boolean,
                              wholeConfig: Config)
 
 case class DbSchemasArgsConfig(drop: Boolean = false,
@@ -46,6 +47,7 @@ object DbMigrationConfig {
       args.drop,
       args.version,
       skipSchemaVerification = false,
+      applyUpgradesTwice = false,
       config
     )
   }}

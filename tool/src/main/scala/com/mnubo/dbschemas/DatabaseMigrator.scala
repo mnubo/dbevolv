@@ -8,7 +8,13 @@ import com.mnubo.app_util.Logging
 import scala.io.Source
 
 object DatabaseMigrator extends Logging {
-  def migrate(config: DbMigrationConfig): String = {
+  private case class MigrationContext(connection: DatabaseConnection,
+                                      name: String,
+                                      targetVersion: Option[String],
+                                      skipSchemaVerification: Boolean,
+                                      applyUpgradesTwice: Boolean)
+
+  def migrate(config: DbMigrationConfig): MigrationReport = {
     import config._
 
     log.info(s"Will upgrade $name @ $host to ${version.getOrElse("latest")} version.")
@@ -24,14 +30,14 @@ object DatabaseMigrator extends Logging {
       wholeConfig
     )) { connection =>
       if (drop) connection.dropDatabase
-      migrate(connection, name, version, skipSchemaVerification)
+      migrate(MigrationContext(connection, name, version, skipSchemaVerification, applyUpgradesTwice))
     }
   }
 
-  private def migrate(connection: DatabaseConnection, name: String, targetVersion: Option[String], skipSchemaVerification: Boolean): String = {
+  private def migrate(ctx: MigrationContext): MigrationReport = {
     val availableMigrations = getAvailableMigrations
-    val installedMigrations = connection.getInstalledMigrationVersions.map(_.version)
-    val target = targetVersion.getOrElse(availableMigrations.last)
+    val installedMigrations = ctx.connection.getInstalledMigrationVersions.map(_.version)
+    val target = ctx.targetVersion.getOrElse(availableMigrations.last)
 
     val currentIndex =
       availableMigrations
@@ -53,16 +59,18 @@ object DatabaseMigrator extends Logging {
         ._2
 
     if (currentIndex > targetIndex)
-      downgrade(connection, name, availableMigrations.slice(targetIndex + 1, currentIndex + 1).reverse)
+      downgrade(ctx, availableMigrations.slice(targetIndex + 1, currentIndex + 1).reverse)
     else if (currentIndex < targetIndex)
-      upgrade(connection, name, availableMigrations.slice(currentIndex + 1, targetIndex + 1), skipSchemaVerification)
+      upgrade(ctx, availableMigrations.slice(currentIndex + 1, targetIndex + 1))
     else
       () // Nothing to do, already at the right target version
 
-    target
+    MigrationReport(if (currentIndex < 0) availableMigrations.head else availableMigrations(currentIndex), target)
   }
 
-  private def upgrade(connection: DatabaseConnection, name: String, steps: Seq[String], skipSchemaVerification: Boolean) = {
+  private def upgrade(ctx: MigrationContext, steps: Seq[String]) = {
+    import ctx._
+
     if (!skipSchemaVerification && !connection.isSchemaValid)
       throw new Exception(s"Oops, it seems the target schema of $name is not what it should be... Please call your dearest developer for helping de-corrupting the database.")
 
@@ -75,11 +83,18 @@ object DatabaseMigrator extends Logging {
     } {
       logInfo(s"Executing upgrade $step")
       stmts.foreach(_.execute(connection, name))
+
+      if (applyUpgradesTwice) {
+        logInfo(s"Checking upgrade $step is idempotent")
+        stmts.foreach(_.execute(connection, name))
+      }
       connection.markMigrationAsInstalled(step)
     }
   }
 
-  private def downgrade(connection: DatabaseConnection, name: String, steps: Seq[String]) = {
+  private def downgrade(ctx: MigrationContext, steps: Seq[String]) = {
+    import ctx._
+
     log.info("Will apply the following migrations: " + steps.mkString(", "))
 
     for {
@@ -144,3 +159,5 @@ object DatabaseMigrator extends Logging {
       executeMethod.invoke(scripInstance, conn.innerConnection, databaseName)
   }
 }
+
+case class MigrationReport(startingVersion: String, migratedToVersion: String)

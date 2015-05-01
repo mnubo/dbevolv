@@ -2,7 +2,6 @@ package com.mnubo
 package dbschemas
 
 import com.mnubo.dbschemas.docker.Docker
-import com.mnubo.test_utils.cassandra.DockerCassandra
 import com.mnubo.test_utils.elasticsearch.DockerElasticsearch
 import com.typesafe.config.ConfigFactory
 import org.elasticsearch.client.transport.TransportClient
