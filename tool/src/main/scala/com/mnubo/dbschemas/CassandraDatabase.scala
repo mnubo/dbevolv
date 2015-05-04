@@ -28,8 +28,8 @@ object CassandraDatabase extends Database {
   override def testDockerBaseImage =
     DatabaseDockerImage(
       name        = "spotify/cassandra",
-      exposedPort  = 9042,
-      isStarted   = _.contains("Listening for thrift clients...")
+      exposedPort = 9042,
+      isStarted   = (log, _) => log.contains("Listening for thrift clients...")
     )
 }
 

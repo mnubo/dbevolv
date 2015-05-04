@@ -29,23 +29,25 @@ object Docker extends Logging {
 
     val options = additionalOptions.map(_ + " ").getOrElse("")
 
-    val container = execAndRead(s"docker run -dt -p $hostPort:$exposedPort $options$dockerImage")
+    val container = execAndRead(s"docker run -dt -p $hostPort:$exposedPort $options$name")
 
-    waitStarted(container, isStarted)
+    val info = ContainerInfo(container, hostPort)
 
-    ContainerInfo(container, hostPort)
+    waitStarted(info, isStarted)
+
+    info
   }
 
   def stop(container: String) =
     exec(s"docker stop $container")
 
-  def start(container: String, isStarted: String => Boolean) = {
-    val previousLog = execAndRead(s"docker logs $container")
+  def start(container: ContainerInfo, isStarted: (String, ContainerInfo) => Boolean) = {
+    val previousLog = execAndRead(s"docker logs ${container.id}")
 
-    def isStartedOnNewLogs(logs: String) =
-      isStarted(logs.replace(previousLog, ""))
+    def isStartedOnNewLogs(logs: String, container: ContainerInfo) =
+      isStarted(logs.replace(previousLog, ""), container)
 
-    exec(s"docker start $container")
+    exec(s"docker start ${container.id}")
 
     waitStarted(container, isStartedOnNewLogs)
   }
@@ -81,8 +83,8 @@ object Docker extends Logging {
   }
 
   @tailrec
-  private def waitStarted(container: String, isStarted: String => Boolean): Unit =
-    if (!isStarted(execAndRead(s"docker logs $container"))) {
+  private def waitStarted(container: ContainerInfo, isStarted: (String, ContainerInfo) => Boolean): Unit =
+    if (!isStarted(execAndRead(s"docker logs ${container.id}"), container)) {
       Thread.sleep(100)
       waitStarted(container, isStarted)
     }

@@ -28,8 +28,8 @@ object MysqlDatabase extends Database {
   override def testDockerBaseImage =
     DatabaseDockerImage(
       name              = "dockerep-0.mtl.mnubo.com/test-mysql:5.6.24",
-      exposedPort        = 3306,
-      isStarted         = _.contains("socket: '/var/run/mysqld/mysqld.sock'  port: 3306"),
+      exposedPort       = 3306,
+      isStarted         = (log, _) => log.contains("socket: '/var/run/mysqld/mysqld.sock'  port: 3306"),
       username          = "root",
       password          = "root",
       additionalOptions = Some("-e MYSQL_ROOT_PASSWORD=root")

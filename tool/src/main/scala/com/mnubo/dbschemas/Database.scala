@@ -2,6 +2,7 @@ package com.mnubo.dbschemas
 
 import java.io.Closeable
 
+import com.mnubo.dbschemas.docker.ContainerInfo
 import com.typesafe.config.Config
 import org.joda.time.DateTime
 
@@ -32,7 +33,7 @@ trait DatabaseConnection extends Closeable {
 
 case class DatabaseDockerImage(name: String,
                                exposedPort: Int,
-                               isStarted: String => Boolean,
+                               isStarted: (String, ContainerInfo) => Boolean,
                                username: String = "",
                                password: String = "",
                                additionalOptions: Option[String] = None)

@@ -52,7 +52,7 @@ object TestDatabaseBuilder extends App with Logging {
     val imageId = Docker.commit(container.id, repositoryName, schemaVersion)
 
     logInfo(s"Testing rollback procedures...")
-    Docker.start(container.id, db.testDockerBaseImage.isStarted)
+    Docker.start(container, db.testDockerBaseImage.isStarted)
     DatabaseMigrator.migrate(DbMigrationConfig(
       db,
       schemaName,

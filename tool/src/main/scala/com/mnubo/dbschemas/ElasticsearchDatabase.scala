@@ -5,8 +5,10 @@ import java.text.SimpleDateFormat
 import java.util.{Date, Map => JMap}
 
 import com.mnubo.app_util.Logging
+import com.mnubo.dbschemas.docker.{Docker, ContainerInfo}
 import com.mnubo.test_utils.elasticsearch.DockerElasticsearch
 import com.typesafe.config.Config
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthStatus
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.ImmutableSettings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
@@ -32,10 +34,23 @@ object ElasticsearchDatabase extends Database {
 
   override def testDockerBaseImage =
     DatabaseDockerImage(
-      name        = "dockerep-0.mtl.mnubo.com/test-elasticsearch:1.5.2",
-      exposedPort  = 9300,
-      isStarted   = log => isStartedRegex.findFirstIn(log).isDefined
+      name              = "dockerep-0.mtl.mnubo.com/test-elasticsearch:1.5.2",
+      exposedPort       = 9300,
+      isStarted         = isStarted,
+      additionalOptions = Some("-p 9200")
     )
+
+  private def isStarted(log: String, info: ContainerInfo) =
+    isStartedRegex.findFirstIn(log).isDefined &&
+    Try(using(new TransportClient().addTransportAddresses(new InetSocketTransportAddress(Docker.dockerHost, info.realPort))) { tempClient =>
+      tempClient
+        .admin()
+        .cluster()
+        .prepareHealth()
+        .get
+        .getStatus == ClusterHealthStatus.GREEN
+    }).toOption.getOrElse(false)
+
 }
 
 class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, indexName: String, config: Config) extends DatabaseConnection with Logging {
