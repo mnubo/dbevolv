@@ -11,7 +11,7 @@ import sbtdocker.DockerKeys._
 import sbtdocker.Instructions._
 import sbtdocker.immutable.Dockerfile
 import sbtdocker.staging.CopyFile
-import sbtdocker.{DockerPlugin, ImageName}
+import sbtdocker.{Instruction, DockerPlugin, ImageName}
 import sbtrelease.ReleasePlugin.ReleaseKeys._
 import sbtrelease.ReleasePlugin._
 import sbtrelease.ReleaseStateTransformations._
@@ -63,17 +63,21 @@ object DbSchemasPlugin extends AutoPlugin {
       val artifact = (assembly in assembly).value
       val artifactTargetPath = s"/app/${artifact.name}"
 
-      val res = Dockerfile(Seq(
+      val base = Seq[Instruction](
         From("domblack/oracle-jre8"),
         Add(CopyFile(artifact), artifactTargetPath),
         Add(CopyFile(new File("db.conf")), "/app/db.conf"),
         Add(CopyFile(new File("migrations")), "/app/migrations/"),
-        Add(CopyFile(new File("src")), "/app/src/"),
         WorkDir("/app"),
         EntryPoint.exec(Seq("java", "-jar", artifactTargetPath))
-      ))
+      )
 
-      res
+      Dockerfile(
+        if (new File("src").exists())
+          base :+ Add(CopyFile(new File("src")), "/app/src/")
+        else
+          base
+      )
     },
     imageNames in docker := Seq(
       ImageName(
