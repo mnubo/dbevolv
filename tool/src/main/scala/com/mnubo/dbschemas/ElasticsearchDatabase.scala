@@ -75,14 +75,20 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, inde
       .actionGet()
       .getHits
       .getHits
-      .map(doc => InstalledVersion(doc.getId, DateTime.parse(doc.getSource.get("migration_date").asInstanceOf[String]).withZone(DateTimeZone.UTC)))
+      .map(doc => InstalledVersion(
+        doc.getId,
+        DateTime.parse(doc.getSource.get("migration_date").asInstanceOf[String]).withZone(DateTimeZone.UTC),
+        doc.getSource.get("checksum").asInstanceOf[String]
+      ))
       .toSet
   }
 
-  override def markMigrationAsInstalled(migrationVersion: String) = {
+  override def markMigrationAsInstalled(migrationVersion: String, checksum: String) = {
     if (!client
       .prepareIndex(indexName, versionTypeName, migrationVersion)
-      .setSource("migration_date", df.format(new Date()).asInstanceOf[Any])
+      .setSource(
+        "migration_date", df.format(new Date()).asInstanceOf[Any],
+        "checksum", checksum)
       .execute
       .get
       .isCreated)
@@ -124,7 +130,10 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, inde
         .indices
         .preparePutMapping(indexName)
         .setType(versionTypeName)
-        .setSource("migration_date", "type=date,store=true,format=date_time")
+        .setSource(
+          "migration_date", "type=date,store=true,format=date_time",
+          "checksum",        "type=string,index=not_analyzed"
+        )
         .get
         .isAcknowledged)
         throw new Exception(s"Cannot add mappings for version table in $indexName index.")
@@ -164,15 +173,21 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, inde
       .isExists
 
   override def isSchemaValid: Boolean = {
-    val currentVersion = getInstalledMigrationVersions.map(_.version).toSeq.sorted.last
+    val installed = getInstalledMigrationVersions.map(_.version).toSeq.sorted
 
-    val currentSchema = schema(client)
+    if (installed.isEmpty)
+      true
+    else {
+      val currentVersion = installed.last
 
-    val expectedSchema = using(DockerElasticsearch(schemaName, currentVersion)) { es =>
-      schema(es.client)
+      val currentSchema = schema(client)
+
+      val expectedSchema = using(DockerElasticsearch(schemaName, currentVersion)) { es =>
+        schema(es.client)
+      }
+
+      expectedSchema.isCompatibleWith(currentSchema)
     }
-
-    expectedSchema.isCompatibleWith(currentSchema)
   }
 
   private def schema(client: TransportClient): Schema[Map[String, String]] = {

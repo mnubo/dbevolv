@@ -26,14 +26,14 @@ trait DatabaseConnection extends Closeable {
   /** Get the concrete connection this DatabaseConnection is wrapping. Ex: the com.datastax.driver.core.Session. **/
   def innerConnection: AnyRef
   def getInstalledMigrationVersions: Set[InstalledVersion]
-  def markMigrationAsInstalled(migrationVersion: String)
+  def markMigrationAsInstalled(migrationVersion: String, checksum: String)
   def markMigrationAsUninstalled(migrationVersion: String)
   def isSchemaValid: Boolean
 }
 
 case class DatabaseDockerImage(name: String, mappedPort: Int, username: String, password: String, additionalOptions: Option[String] = None)
 
-case class InstalledVersion(version: String, installedDate: DateTime)
+case class InstalledVersion(version: String, installedDate: DateTime, checksum: String)
 
 object Database {
   val databases =
