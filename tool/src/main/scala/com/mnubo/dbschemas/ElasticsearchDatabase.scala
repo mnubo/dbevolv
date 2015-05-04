@@ -18,6 +18,7 @@ import scala.util.Try
 
 object ElasticsearchDatabase extends Database {
   val name = "elasticsearch"
+  private val isStartedRegex = """recovered \[\d+\] indices into cluster_state""".r
 
   override def openConnection(schemaName: String,
                               hosts: String,
@@ -30,10 +31,11 @@ object ElasticsearchDatabase extends Database {
     new ElasticsearchConnection(schemaName, hosts, if (port > 0) port else 9300, indexName, config)
 
   override def testDockerBaseImage =
-    DatabaseDockerImage("dockerep-0.mtl.mnubo.com/test-elasticsearch:1.5.2", 9300, "", "")
-
-  override def isStarted(log: String) =
-    log.contains("] started")
+    DatabaseDockerImage(
+      name        = "dockerep-0.mtl.mnubo.com/test-elasticsearch:1.5.2",
+      exposedPort  = 9300,
+      isStarted   = log => isStartedRegex.findFirstIn(log).isDefined
+    )
 }
 
 class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, indexName: String, config: Config) extends DatabaseConnection with Logging {
@@ -56,7 +58,7 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, inde
     client
 
   /** For tests, or QA, we might want to recreate a database instance from scratch. Implementors should know how to properly clean an existing database. */
-  override def dropDatabase = {
+  override def dropDatabase() = {
     if (!client.admin.indices().prepareDelete(indexName).get.isAcknowledged)
       throw new Exception(s"Cannot delete index $indexName")
 

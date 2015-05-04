@@ -25,12 +25,7 @@ object TestDatabaseBuilder extends App with Logging {
   val db = Database.databases(dbKind)
 
   logInfo(s"Starting a fresh test $dbKind $schemaName instance ...")
-  val container = Docker.run(
-    dockerImage = db.testDockerBaseImage.name,
-    exposedPort = db.testDockerBaseImage.mappedPort,
-    isStarted = db.isStarted,
-    additionalOptions = db.testDockerBaseImage.additionalOptions
-  )
+  val container = Docker.run(db.testDockerBaseImage)
 
   try {
     logInfo(s"Creating and migrating test database '$schemaName' to latest version ...")
@@ -57,7 +52,7 @@ object TestDatabaseBuilder extends App with Logging {
     val imageId = Docker.commit(container.id, repositoryName, schemaVersion)
 
     logInfo(s"Testing rollback procedures...")
-    Docker.start(container.id, db.isStarted)
+    Docker.start(container.id, db.testDockerBaseImage.isStarted)
     DatabaseMigrator.migrate(DbMigrationConfig(
       db,
       schemaName,

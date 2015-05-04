@@ -4,6 +4,7 @@ package dbschemas.docker
 import java.net.ServerSocket
 
 import com.mnubo.app_util.Logging
+import com.mnubo.dbschemas.DatabaseDockerImage
 
 import scala.annotation.tailrec
 import scala.sys.process._
@@ -21,7 +22,9 @@ object Docker extends Logging {
   private def getAvailablePort =
     using(new ServerSocket(0))(_.getLocalPort)
 
-  def run(dockerImage: String, exposedPort: Int, isStarted: String => Boolean, additionalOptions: Option[String] = None): ContainerInfo = {
+  def run(dockerImage: DatabaseDockerImage): ContainerInfo = {
+    import dockerImage._
+
     val hostPort = getAvailablePort
 
     val options = additionalOptions.map(_ + " ").getOrElse("")
