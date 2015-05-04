@@ -26,10 +26,11 @@ object CassandraDatabase extends Database {
     new CassandraConnection(schemaName, hosts, if (port > 0) port else 9042, keyspace, createDatabaseStatement)
 
   override def testDockerBaseImage =
-    DatabaseDockerImage("spotify/cassandra", 9042, "", "")
-
-  override def isStarted(log: String) =
-    log.contains("Listening for thrift clients...")
+    DatabaseDockerImage(
+      name        = "spotify/cassandra",
+      exposedPort = 9042,
+      isStarted   = (log, _) => log.contains("Listening for thrift clients...")
+    )
 }
 
 class CassandraConnection(schemaName: String, hosts: String, port: Int, keyspace: String, createDatabaseStatement: String) extends DatabaseConnection {
@@ -52,7 +53,7 @@ class CassandraConnection(schemaName: String, hosts: String, port: Int, keyspace
     session
 
   /** For tests, or QA, we might want to recreate a database instance from scratch. Implementors should know how to properly clean an existing database. */
-  override def dropDatabase = {
+  override def dropDatabase() = {
     cluster
       .getMetadata
       .getKeyspace(keyspace)

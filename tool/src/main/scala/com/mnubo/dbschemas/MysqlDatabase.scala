@@ -26,10 +26,14 @@ object MysqlDatabase extends Database {
     new MysqlConnection(schemaName, host, if (port > 0) port else 3306, database, userName, pwd, createDatabaseStatement)
 
   override def testDockerBaseImage =
-    DatabaseDockerImage("dockerep-0.mtl.mnubo.com/test-mysql:5.6.24", 3306, "root", "root", Some("-e MYSQL_ROOT_PASSWORD=root"))
-
-  override def isStarted(log: String) =
-    log.contains("socket: '/var/run/mysqld/mysqld.sock'  port: 3306")
+    DatabaseDockerImage(
+      name              = "dockerep-0.mtl.mnubo.com/test-mysql:5.6.24",
+      exposedPort       = 3306,
+      isStarted         = (log, _) => log.contains("socket: '/var/run/mysqld/mysqld.sock'  port: 3306"),
+      username          = "root",
+      password          = "root",
+      additionalOptions = Some("-e MYSQL_ROOT_PASSWORD=root")
+    )
 }
 
 class MysqlConnection(schemaName: String,
@@ -54,7 +58,7 @@ class MysqlConnection(schemaName: String,
     connection
 
   /** For tests, or QA, we might want to recreate a database instance from scratch. Implementors should know how to properly clean an existing database. */
-  override def dropDatabase = {
+  override def dropDatabase() = {
     execute("DROP DATABASE " + database)
     execute(createDatabaseStatement)
     execute("USE " + database)

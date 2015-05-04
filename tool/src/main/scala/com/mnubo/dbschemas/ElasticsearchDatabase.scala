@@ -5,8 +5,10 @@ import java.text.SimpleDateFormat
 import java.util.{Date, Map => JMap}
 
 import com.mnubo.app_util.Logging
+import com.mnubo.dbschemas.docker.{Docker, ContainerInfo}
 import com.mnubo.test_utils.elasticsearch.DockerElasticsearch
 import com.typesafe.config.Config
+import org.elasticsearch.action.admin.cluster.health.ClusterHealthStatus
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.ImmutableSettings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
@@ -18,6 +20,7 @@ import scala.util.Try
 
 object ElasticsearchDatabase extends Database {
   val name = "elasticsearch"
+  private val isStartedRegex = """recovered \[\d+\] indices into cluster_state""".r
 
   override def openConnection(schemaName: String,
                               hosts: String,
@@ -30,10 +33,24 @@ object ElasticsearchDatabase extends Database {
     new ElasticsearchConnection(schemaName, hosts, if (port > 0) port else 9300, indexName, config)
 
   override def testDockerBaseImage =
-    DatabaseDockerImage("dockerep-0.mtl.mnubo.com/test-elasticsearch:1.5.2", 9300, "", "")
+    DatabaseDockerImage(
+      name              = "dockerep-0.mtl.mnubo.com/test-elasticsearch:1.5.2",
+      exposedPort       = 9300,
+      isStarted         = isStarted,
+      additionalOptions = Some("-p 9200")
+    )
 
-  override def isStarted(log: String) =
-    log.contains("] started")
+  private def isStarted(log: String, info: ContainerInfo) =
+    isStartedRegex.findFirstIn(log).isDefined &&
+    Try(using(new TransportClient().addTransportAddresses(new InetSocketTransportAddress(Docker.dockerHost, info.realPort))) { tempClient =>
+      tempClient
+        .admin()
+        .cluster()
+        .prepareHealth()
+        .get
+        .getStatus == ClusterHealthStatus.GREEN
+    }).toOption.getOrElse(false)
+
 }
 
 class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, indexName: String, config: Config) extends DatabaseConnection with Logging {
@@ -56,7 +73,7 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, inde
     client
 
   /** For tests, or QA, we might want to recreate a database instance from scratch. Implementors should know how to properly clean an existing database. */
-  override def dropDatabase = {
+  override def dropDatabase() = {
     if (!client.admin.indices().prepareDelete(indexName).get.isAcknowledged)
       throw new Exception(s"Cannot delete index $indexName")
 

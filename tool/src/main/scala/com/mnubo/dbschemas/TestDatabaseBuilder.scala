@@ -7,6 +7,8 @@ import com.mnubo.app_util.{MnuboConfiguration, Logging}
 import com.mnubo.dbschemas.docker.Docker
 import com.typesafe.config.{ConfigParseOptions, ConfigFactory}
 
+import scala.util.control.NonFatal
+
 object TestDatabaseBuilder extends App with Logging {
   val MnuboDockerRegistry = "dockerep-0.mtl.mnubo.com"
   val doPush = if (args contains "push") true else false
@@ -23,12 +25,7 @@ object TestDatabaseBuilder extends App with Logging {
   val db = Database.databases(dbKind)
 
   logInfo(s"Starting a fresh test $dbKind $schemaName instance ...")
-  val container = Docker.run(
-    dockerImage = db.testDockerBaseImage.name,
-    exposedPort = db.testDockerBaseImage.mappedPort,
-    isStarted = db.isStarted,
-    additionalOptions = db.testDockerBaseImage.additionalOptions
-  )
+  val container = Docker.run(db.testDockerBaseImage)
 
   try {
     logInfo(s"Creating and migrating test database '$schemaName' to latest version ...")
@@ -55,7 +52,7 @@ object TestDatabaseBuilder extends App with Logging {
     val imageId = Docker.commit(container.id, repositoryName, schemaVersion)
 
     logInfo(s"Testing rollback procedures...")
-    Docker.start(container.id, db.isStarted)
+    Docker.start(container, db.testDockerBaseImage.isStarted)
     DatabaseMigrator.migrate(DbMigrationConfig(
       db,
       schemaName,
@@ -79,6 +76,11 @@ object TestDatabaseBuilder extends App with Logging {
       logInfo(s"Cleaning up image $imageId ...")
       Docker.removeImage(imageId)
     }
+  }
+  catch {
+    case NonFatal(ex) =>
+      logError(s"Test database build failed", ex)
+      throw ex
   }
   finally {
     logInfo(s"Cleaning up container ${container.id} ...")
