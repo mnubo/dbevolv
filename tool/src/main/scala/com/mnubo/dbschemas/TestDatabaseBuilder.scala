@@ -7,6 +7,8 @@ import com.mnubo.app_util.{MnuboConfiguration, Logging}
 import com.mnubo.dbschemas.docker.Docker
 import com.typesafe.config.{ConfigParseOptions, ConfigFactory}
 
+import scala.util.control.NonFatal
+
 object TestDatabaseBuilder extends App with Logging {
   val MnuboDockerRegistry = "dockerep-0.mtl.mnubo.com"
   val doPush = if (args contains "push") true else false
@@ -79,6 +81,11 @@ object TestDatabaseBuilder extends App with Logging {
       logInfo(s"Cleaning up image $imageId ...")
       Docker.removeImage(imageId)
     }
+  }
+  catch {
+    case NonFatal(ex) =>
+      logError(s"Test database build failed", ex)
+      throw ex
   }
   finally {
     logInfo(s"Cleaning up container ${container.id} ...")
