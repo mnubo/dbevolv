@@ -27,11 +27,11 @@ object MD5 {
     val classFiles =
       stmts
         .flatMap {
-        case cs: ClassStatement =>
-          cs.sourceFile
-        case _ =>
-          None
-      }
+          case cs: ClassStatement =>
+            cs.sourceFile
+          case _ =>
+            None
+        }
         .sorted
 
     val bytes = (classFiles :+ stmtFile.getPath)
