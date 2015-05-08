@@ -35,6 +35,7 @@ lazy val migrator = (project in file("migrator"))
 
 lazy val plugin = (project in file("plugin"))
   .enablePlugins(MnuboLibraryPlugin)
+  .settings(scriptedSettings: _*)
   .settings(
     name := "dbschemas-sbt-plugin",
     sbtPlugin := true,
@@ -49,7 +50,11 @@ lazy val plugin = (project in file("plugin"))
       val file = dir / "version.txt"
       IO.write(file, v)
       Seq(file)
-    }
+    },
+    scriptedLaunchOpts := { scriptedLaunchOpts.value ++
+      Seq("-Xmx1024M", "-XX:MaxPermSize=256M", "-Dplugin.version=" + version.value)
+    },
+    scriptedBufferLog := false
   )
 
 
