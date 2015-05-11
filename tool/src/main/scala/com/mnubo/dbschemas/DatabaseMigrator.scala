@@ -122,7 +122,7 @@ object DatabaseMigrator extends Logging {
     }
   }
 
-  private def getAvailableMigrations: Seq[String] =
+  def getAvailableMigrations: Seq[String] =
     new File("migrations")
       .listFiles(new FileFilter {
         override def accept(pathname: File) =

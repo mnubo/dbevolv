@@ -103,7 +103,7 @@ If you need complex logic, you can create a custom Java / Scala class and refere
 
     CREATE TABLE .... ;
     # Some comment
-    @@com.mnubo.platform_cassandra.UpgradeFields
+    @@com.mnubo.platform_cassandra.UpgradeFields;
 
 Your class should be located at the usual Maven/SBT location. In this example: src/main/scala/com/mnubo/platform_cassandra/UpgradeFields.java. It must have a constructor with no parameters, and an execute method taking a 2 parameters.
 
@@ -187,7 +187,7 @@ To get usage:
 This should result to something like:
 
     Upgrades / downgrades the enrichment database to the given version for all the namespaces.
-    Usage: docker run -it --rm -e ENV=<environment name> dockerep-0.mtl.mnubo.com/enrichment-mgr:latest [options]
+    Usage: docker run -it --rm -v $HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $(which docker):/bin/docker -e ENV=<environment name> dockerep-0.mtl.mnubo.com/enrichment-mgr:latest [options]
 
       -v <value> | --version <value>
             The version you want to upgrade / downgrade to. If not specified, will upagrade to latest version.
@@ -195,8 +195,12 @@ This should result to something like:
             Display history of database migrations instead of migrating the database.
       --help
             Display this schema manager usage.
+
+    Note: 
+      the volume mounts are only necessary when upgrading a schema. You can omit them when downgrading, getting help, or display the history.
+
     Example:
-      docker run -it --rm -e ENV=dev dockerep-0.mtl.mnubo.com/enrichment:latest --version 0004
+      docker run -it --rm -v $HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $(which docker):/bin/docker -e ENV=dev dockerep-0.mtl.mnubo.com/enrichment:latest --version 0004
       
 Note: the help message is slightly different for the databases that don't have one instance by namespace (global databases).
 

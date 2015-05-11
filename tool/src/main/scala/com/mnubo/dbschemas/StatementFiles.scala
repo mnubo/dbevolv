@@ -2,9 +2,11 @@ package com.mnubo.dbschemas
 
 import java.io.{FileFilter, File}
 
+import com.mnubo.app_util.Logging
+
 import scala.io.Source
 
-object StatementFiles {
+object StatementFiles extends Logging {
   def parseStatements(stmtFile: File): Seq[Statement] =
     Source
       .fromFile(stmtFile)
@@ -14,6 +16,7 @@ object StatementFiles {
       .mkString(" ")
       .split(";")
       .toSeq
+      .map(_.trim)
       .filterNot(_.isEmpty) // mkString is at least producing an empty string, so have to refilter empty lines.
       .map { line =>
         if (line.startsWith("@@"))

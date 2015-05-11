@@ -21,7 +21,7 @@ object DatabaseInspector extends Logging {
     )) { connection =>
       println(s"History of $name @ $host:")
       println()
-      println("         Version                       Date                    Checksum")
+      println("         Version                       Date                           Checksum")
       connection
         .getInstalledMigrationVersions
         .toSeq

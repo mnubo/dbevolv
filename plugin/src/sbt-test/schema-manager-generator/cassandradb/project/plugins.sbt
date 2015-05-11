@@ -6,7 +6,7 @@ resolvers ++= Seq(
 addSbtPlugin("com.mnubo" % "dbschemas-sbt-plugin" % System.getProperty("plugin.version"))
 
 libraryDependencies ++= Seq(
-  "com.mnubo"   %  "test-utils"             % "[1.0.61,)",
-  "commons-io"   %  "commons-io"              % "2.4",
-  "mysql"       %  "mysql-connector-java"   % "5.1.35"
+  "com.mnubo"               %  "test-utils"             % "[1.0.61,)",
+  "commons-io"              %  "commons-io"             % "2.4",
+  "com.datastax.cassandra"  %  "cassandra-driver-core"  % "2.1.4"
 )

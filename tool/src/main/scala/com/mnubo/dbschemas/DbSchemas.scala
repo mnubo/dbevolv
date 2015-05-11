@@ -2,10 +2,11 @@ package com.mnubo.dbschemas
 
 import java.io.File
 
-import com.mnubo.app_util.MnuboConfiguration
+import com.mnubo.app_util.{Logging, MnuboConfiguration}
+import com.mnubo.dbschemas.docker.Docker
 import com.typesafe.config.{Config, ConfigFactory}
 
-object DbSchemas extends App {
+object DbSchemas extends App with Logging {
   private val config =
     ConfigFactory
       .defaultOverrides()
@@ -26,7 +27,7 @@ object DbSchemas extends App {
     config.getString("schema_name")
 
   private val parser =
-    new scopt.OptionParser[DbSchemasArgsConfig](s"docker run -it --rm -e ENV=<environment name> dockerep-0.mtl.mnubo.com/$schemaName:latest") {
+    new scopt.OptionParser[DbSchemasArgsConfig](s"docker run -it --rm -v $$HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $$(which docker):/bin/docker -e ENV=<environment name> dockerep-0.mtl.mnubo.com/$schemaName:latest") {
 
       if (hasInstanceForEachNamespace)
         head(s"Upgrades / downgrades the $schemaName database to the given version for all the namespaces.")
@@ -47,9 +48,13 @@ object DbSchemas extends App {
 
       help("help") text "Display this schema manager usage."
 
-      note("Example:")
+      note("")
+      note("Note:")
+      note("  the volume mounts are only necessary when upgrading a schema. You can omit them when downgrading, getting help, or display the history.")
 
-      note(s"  docker run -it --rm -e ENV=dev dockerep-0.mtl.mnubo.com/$schemaName:latest --version=0004")
+      note("")
+      note("Example:")
+      note(s"  docker run -it --rm -v $$HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $$(which docker):/bin/docker -e ENV=dev dockerep-0.mtl.mnubo.com/$schemaName:latest --version=0004")
 
     }
 
