@@ -77,9 +77,16 @@ object Docker extends Logging {
   }
 
   def execAndRead(cmd: String) = {
+    val out = new StringBuilder
+    val err = new StringBuilder
+    val l = ProcessLogger(o => out.append(o + "\n"), e => err.append(e) + "\n")
+
     if (!cmd.startsWith("docker logs"))
       logInfo(cmd)
-    cmd.!!
+
+    Process(cmd) ! l
+
+    out.toString().trim + err.toString().trim
   }
 
   @tailrec

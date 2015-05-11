@@ -3,4 +3,5 @@
 # http://eed3si9n.com/testing-sbt-plugins
 
 > docker
+> buildTestContainer
 > check-mgr

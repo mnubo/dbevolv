@@ -29,30 +29,39 @@ object TestDatabaseBuilder extends App with Logging {
 
   try {
     logInfo(s"Creating and migrating test database '$schemaName' to latest version ...")
-    val report = DatabaseMigrator.migrate(DbMigrationConfig(
-      db,
-      schemaName,
-      Docker.dockerHost,
-      container.realPort,
-      db.testDockerBaseImage.username,
-      db.testDockerBaseImage.password,
-      schemaName,
-      config.getString("create_database_statement").replace("@@DATABASE_NAME@@", schemaName),
-      drop = false,
-      None,
-      skipSchemaVerification = true,
-      applyUpgradesTwice = true,
-      config
-    ))
+    val images = DatabaseMigrator.getAvailableMigrations.map { schemaVersion =>
+      DatabaseMigrator.migrate(DbMigrationConfig(
+        db,
+        schemaName,
+        Docker.dockerHost,
+        container.realPort,
+        db.testDockerBaseImage.username,
+        db.testDockerBaseImage.password,
+        schemaName,
+        config.getString("create_database_statement").replace("@@DATABASE_NAME@@", schemaName),
+        drop = false,
+        Some(schemaVersion),
+        skipSchemaVerification = true,
+        applyUpgradesTwice = true,
+        config
+      ))
 
-    val schemaVersion = report.migratedToVersion
+      logInfo(s"Commiting $dbKind $schemaName test instance to $repositoryName:$schemaVersion...")
+      Docker.stop(container.id)
+      val imageId = Docker.commit(container.id, repositoryName, schemaVersion)
 
-    logInfo(s"Commiting $dbKind $schemaName test instance to $repositoryName:$schemaVersion...")
-    Docker.stop(container.id)
-    val imageId = Docker.commit(container.id, repositoryName, schemaVersion)
+      if (doPush) {
+        logInfo(s"Publishing $dbKind $schemaName test instance to $repositoryName:$schemaVersion ...")
+        Docker.push(s"$repositoryName:$schemaVersion")
+      }
+
+      Docker.start(container, db.testDockerBaseImage.isStarted)
+
+      imageId
+    }
 
     logInfo(s"Testing rollback procedures...")
-    Docker.start(container, db.testDockerBaseImage.isStarted)
+    val startingVersion = DatabaseMigrator.getAvailableMigrations.head
     DatabaseMigrator.migrate(DbMigrationConfig(
       db,
       schemaName,
@@ -63,18 +72,17 @@ object TestDatabaseBuilder extends App with Logging {
       schemaName,
       config.getString("create_database_statement").replace("@@DATABASE_NAME@@", schemaName),
       drop = false,
-      Some(report.startingVersion),
+      Some(startingVersion),
       skipSchemaVerification = true,
       applyUpgradesTwice = false,
       config
     ))
 
     if (doPush) {
-      logInfo(s"Publishing $dbKind $schemaName test instance to $repositoryName:$schemaVersion ...")
-      Docker.push(s"$repositoryName:$schemaVersion")
-
-      logInfo(s"Cleaning up image $imageId ...")
-      Docker.removeImage(imageId)
+      images.foreach { imageId =>
+        logInfo(s"Cleaning up image $imageId ...")
+        Docker.removeImage(imageId)
+      }
     }
   }
   catch {

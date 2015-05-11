@@ -12,68 +12,176 @@ import scala.annotation.tailrec
 import sys.process.{Process => SProcess, ProcessLogger => SProcessLogger}
 
 TaskKey[Unit]("check-mgr") := {
-  val port = using(new ServerSocket(0))(_.getLocalPort)
   val logger = streams.value.log
-  def runAndListen(cmd: String) = {
+
+  def runShellAndListen(cmd: String) = {
     val out = new StringBuilder
     val err = new StringBuilder
-    val l = SProcessLogger(o => out.append(o), e => err.append(e))
+    val l = SProcessLogger(o => out.append(o + "\n"), e => err.append(e) + "\n")
 
     logger.info(cmd)
     SProcess(cmd) ! l
     out.toString.trim + err.toString.trim
   }
-  def run(cmd: String) = {
+
+  def runShell(cmd: String) = {
     logger.info(cmd)
     SProcess(cmd) !
   }
 
-  val mysqlContainerId =
-    runAndListen(s"docker run -d -p $port:3306 -e MYSQL_ROOT_PASSWORD=root dockerep-0.mtl.mnubo.com/test-mysql:5.6.24")
+  case class Mysql() {
+    val port = using(new ServerSocket(0))(_.getLocalPort)
 
-  def isStarted =
-    runAndListen(s"docker logs $mysqlContainerId")
-      .contains("socket: '/var/run/mysqld/mysqld.sock'  port: 3306")
+    runShell("docker pull dockerep-0.mtl.mnubo.com/test-mysql:5.6.24")
 
-  @tailrec
-  def waitStarted: Unit =
-    if (!isStarted) {
-      Thread.sleep(100)
-      waitStarted
+    val mysqlContainerId =
+      runShellAndListen(s"docker run -d -p $port:3306 -e MYSQL_ROOT_PASSWORD=root dockerep-0.mtl.mnubo.com/test-mysql:5.6.24")
+
+    private def isStarted =
+      runShellAndListen(s"docker logs $mysqlContainerId")
+        .contains("socket: '/var/run/mysqld/mysqld.sock'  port: 3306")
+
+    @tailrec
+    private def waitStarted: Unit =
+      if (!isStarted) {
+        Thread.sleep(500)
+        waitStarted
+      }
+
+    waitStarted
+
+    new com.mysql.jdbc.Driver() // Register driver
+    val connection = DriverManager.getConnection(s"jdbc:mysql://$host:$port", "root", "root")
+
+    def query[T](sql: String)(readFunction: ResultSet =>T): Seq[T] = {
+      using(connection.createStatement().executeQuery(sql)) { rs: ResultSet =>
+        @tailrec
+        def read(acc: Seq[T] = Seq.empty[T]): Seq[T] =
+          if (rs.next())
+            read(acc :+ readFunction(rs))
+          else
+            acc
+
+        read()
+      }
+
     }
 
-  waitStarted
+    def execute(sql: String) =
+      connection
+        .createStatement()
+        .execute(sql)
 
-  assert(run(s"docker run -i --rm --link $mysqlContainerId:mysql -e ENV=integration dockerep-0.mtl.mnubo.com/mysqldb-mgr:1.0.0-SNAPSHOT") == 0, "The schema manager failed.")
-
-  new com.mysql.jdbc.Driver()
-  using(DriverManager.getConnection(s"jdbc:mysql://$host:$port", "root", "root")) { connection: Connection =>
-    using(connection.createStatement().executeQuery("SELECT COUNT(1) FROM mysqldb.kv")) { rs: ResultSet =>
-      rs.next()
-
-      assert(rs.getInt(1) == 0, "Could not query the created table")
-    }
-    using(connection.createStatement().executeQuery("SELECT migration_version, migration_date, checksum FROM mysqldb.mysqldb_version")) { rs: ResultSet =>
-      rs.next()
-
-      assert(rs.getString(1) == "0001", "The version has not been set properly in metadata")
-
-      val bytes = Files.readAllBytes(Paths.get("migrations/0001/upgrade.sql"))
-      val checksum = MessageDigest
-        .getInstance("MD5")
-        .digest(bytes)
-        .map("%02x".format(_))
-        .mkString
-
-      assert(rs.getString(3) == checksum, "The checksum has not been set properly in metadata")
-
-      assert(!rs.next(), "There was too much metadata")
+    def close(): Unit = {
+      connection.close()
+      s"docker stop $mysqlContainerId".!
+      s"docker rm $mysqlContainerId".!
     }
   }
 
-  s"docker stop $mysqlContainerId".!
-  s"docker rm $mysqlContainerId".!
+  case class Metadata(version: String, checksum: String) {
+    def this(rs: ResultSet) = this(rs.getString("migration_version"), rs.getString("checksum"))
+  }
+
+  val dockerExec =
+    runShellAndListen("which docker")
+  val userHome =
+    System.getenv("HOME")
+
+  using(Mysql()) { ms =>
+    import ms._
+
+    val mgrCmd =
+      s"docker run -i --rm --link $mysqlContainerId:mysql -v $userHome/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $dockerExec:/bin/docker -e ENV=integration dockerep-0.mtl.mnubo.com/mysqldb-mgr:1.0.0-SNAPSHOT"
+
+    // Run the schema manager to migrate the db to latest version
+    assert(
+      runShell(mgrCmd) == 0,
+      "The schema manager failed."
+    )
+
+    assert(
+      query("SELECT COUNT(1) as ct FROM mysqldb.kv")(_.getLong("ct")) == Seq(3L),
+      "Could not query the created table"
+    )
+
+    val metadata = query("SELECT migration_version, checksum FROM mysqldb.mysqldb_version ORDER BY migration_version")(new Metadata(_))
+
+    val checksum1 = MessageDigest
+      .getInstance("MD5")
+      .digest(Files.readAllBytes(Paths.get("migrations/0001/upgrade.sql")))
+      .map("%02x".format(_))
+      .mkString
+
+    val bytesJava2 = Files.readAllBytes(Paths.get("src/main/java/mysqldb/JavaUp0002.java"))
+    val bytesScala2 = Files.readAllBytes(Paths.get("src/main/scala/mysqldb/ScalaUp0002.scala"))
+    val bytesSql2 = Files.readAllBytes(Paths.get("migrations/0002/upgrade.sql"))
+    val checksum2 = MessageDigest
+      .getInstance("MD5")
+      .digest(bytesJava2 ++ bytesScala2 ++ bytesSql2)
+      .map("%02x".format(_))
+      .mkString
+
+    val expectedMetadata = Seq(
+      Metadata("0001", checksum1),
+      Metadata("0002", checksum2)
+    )
+
+    assert(
+      metadata == expectedMetadata,
+      s"Actual metadata ($metadata) do not match expected ($expectedMetadata)"
+    )
+
+    // Run the schema manager to display history
+    val history =
+      runShellAndListen(s"$mgrCmd --history")
+    logger.info(history)
+    val historyRegex =
+      ("""History of mysqldb @ mysql:\s+Version\s+Date\s+Checksum\s+0001\s+\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d.\d\d\dZ\s+""" + checksum1 + """\s+0002\s+\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d.\d\d\dZ\s+""" + checksum2).r
+    assert(
+       historyRegex.findFirstIn(history).isDefined,
+      "The schema manager did not report history properly."
+    )
+
+    // Run the schema manager to downgrade to previous version
+    runShell(s"$mgrCmd --version 0001")
+
+    assert(
+      query("SELECT COUNT(1) as ct FROM mysqldb.kv")(_.getInt("ct")) == Seq(0),
+      "Downgrade did not bring back the schema to the expected state"
+    )
+
+    assert(
+      query("SELECT migration_version, checksum FROM mysqldb.mysqldb_version")(new Metadata(_)) == Seq(Metadata("0001", checksum1)),
+      "Metadata is not updated correctly after a downgrade"
+    )
+
+    // Fiddle with checksum and make sure the schema manager refuses to proceed
+    execute("UPDATE mysqldb.mysqldb_version SET checksum='abc' WHERE migration_version = '0001'")
+    assert(
+      runShell(mgrCmd) != 0,
+      "The schema manager should not have accepted to proceed with a wrong checksum"
+    )
+    execute(s"UPDATE mysqldb.mysqldb_version SET checksum='$checksum1' WHERE migration_version = '0001'")
+
+    // Fiddle with schema and make sure the schema manager refuses to proceed
+    execute("ALTER TABLE mysqldb.kv CHANGE COLUMN v v2 VARCHAR(255)")
+    assert(
+      runShell(mgrCmd) != 0,
+      "The schema manager should not have accepted to proceed with a wrong schema"
+    )
+    execute("ALTER TABLE mysqldb.kv CHANGE COLUMN v2 v VARCHAR(255)")
+
+    // Finally, make sure we can re-apply latest migration
+    assert(
+      runShell(mgrCmd) == 0,
+      "The schema manager should have run successfully"
+    )
+  }
+
   s"docker rmi -f dockerep-0.mtl.mnubo.com/mysqldb-mgr:1.0.0-SNAPSHOT".!
   s"docker rmi -f dockerep-0.mtl.mnubo.com/mysqldb-mgr:latest".!
+  s"docker rmi -f dockerep-0.mtl.mnubo.com/test-mysqldb:0002".!
+  s"docker rmi -f dockerep-0.mtl.mnubo.com/test-mysqldb:0001".!
+  s"docker rmi -f dockerep-0.mtl.mnubo.com/test-mysqldb:latest".!
 }
-
