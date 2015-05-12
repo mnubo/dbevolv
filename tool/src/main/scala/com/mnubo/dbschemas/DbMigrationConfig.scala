@@ -21,7 +21,7 @@ case class DbSchemasArgsConfig(drop: Boolean = false,
                                cmd: DbCommand = Migrate)
 
 object DbMigrationConfig {
-  def apply(args: DbSchemasArgsConfig, config: Config, namespace: Option[String]): DbMigrationConfig = {
+  def apply(args: DbSchemasArgsConfig, config: Config, namespace: Option[String], version: Option[String]): DbMigrationConfig = {
     val schemaName =
       config.getString("schema_name")
 
@@ -45,7 +45,7 @@ object DbMigrationConfig {
       nameProvider.computeDatabaseName(schemaName, namespace),
       config.getString("create_database_statement").replace("@@DATABASE_NAME@@", name),
       args.drop,
-      args.version,
+      version,
       skipSchemaVerification = false,
       applyUpgradesTwice = false,
       config

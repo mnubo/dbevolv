@@ -23,9 +23,11 @@ Create a git repo with the following structure:
     /version.sbt
     /project/plugins.sbt
             /build.properties
-    /migrations/0001/
-               /0002/
-               /0003/
+    /migrations/0010/
+               /0020/
+               /0030/
+               /0040/
+               /0050/
 
 The `db.conf` should contain the description of the database schema. You must also specify the connection strings for all the environments. For example:
 
@@ -39,16 +41,25 @@ The `db.conf` should contain the description of the database schema. You must al
     }
     dev {
       host = "atca-mnu1-s06.mtl.mnubo.com,atca-mnu1-s09.mtl.mnubo.com,atca-mnu1-s13.mtl.mnubo.com"
+      schema_version = "0050"
     }
     qa {
       host = "<the qa host>"
+      schema_version = "0040"
     }
     preprod {
       host = "<the preprod host>"
+      schema_version = "0030"
+    }
+    sandbox {
+      host = "<the sandbox host>"
+      create_database_statement = "CREATE KEYSPACE @@DATABASE_NAME@@ WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 2 }"
+      schema_version = "0030"
     }
     prod {
       host = "<the prod host>"
       create_database_statement = "CREATE KEYSPACE @@DATABASE_NAME@@ WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 3 }"
+      schema_version = "0030"
     }
 
 Here are the different parameters you can configure:
@@ -56,6 +67,7 @@ Here are the different parameters you can configure:
 * **database_kind**: which kind of database we are targeting. See "Supported databases" for valid values.
 * **hasInstanceForEachNamespace**: whether this database have a distinct instance for each of the namespaces. Default is 'false' (the database is a 'global' one).
 * **schema_name**: the logical name of this database schema.
+* **schema_version**: the migration version the given environment is supposed to be at. If not specified, all migrations will be applied. Specifying it is mandatory for dev, qa, preprod, sandbox, and prod. 
 * **host**: the host or hosts name(s) to connect to.
 * **port**: the port to connect to. Leave empty for default port.
 * **username**: the username to use to connect to the database instance. Certain kind of databases like Cassandra don't need that.
@@ -190,7 +202,7 @@ This should result to something like:
     Usage: docker run -it --rm -v $HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $(which docker):/bin/docker -e ENV=<environment name> dockerep-0.mtl.mnubo.com/enrichment-mgr:latest [options]
 
       -v <value> | --version <value>
-            The version you want to upgrade / downgrade to. If not specified, will upagrade to latest version.
+            The version you want to upgrade / downgrade to. If not specified, will upgrade to latest version.
       --history
             Display history of database migrations instead of migrating the database.
       --help
@@ -225,19 +237,29 @@ Example output in dev on the enrichment Cassandra database:
 
     History of sparkdemoconnectedcars @ vm21-hulk-priv,vm22-hulk-priv,vm23-hulk-priv:
     
-             Version                       Date
+             Version                       Date                           Checksum
+                0010   2015-05-11T00:00:00.000Z   555f57888cf9bea47e97bf6c9b7e9d3f
+                0020   2015-05-11T00:00:00.000Z   c123fc10e716daf6275dfe67efa1efac
     History of sparkdemowearables @ vm21-hulk-priv,vm22-hulk-priv,vm23-hulk-priv:
     
-             Version                       Date
+             Version                       Date                           Checksum
+                0010   2015-05-11T00:00:00.000Z   555f57888cf9bea47e97bf6c9b7e9d3f
+                0020   2015-05-11T00:00:00.000Z   c123fc10e716daf6275dfe67efa1efac
     History of sparkdemoagriculture @ vm21-hulk-priv,vm22-hulk-priv,vm23-hulk-priv:
     
-             Version                       Date
+             Version                       Date                           Checksum
+                0010   2015-05-11T00:00:00.000Z   555f57888cf9bea47e97bf6c9b7e9d3f
+                0020   2015-05-11T00:00:00.000Z   c123fc10e716daf6275dfe67efa1efac
     History of connectedevice @ vm21-hulk-priv,vm22-hulk-priv,vm23-hulk-priv:
     
-             Version                       Date
+             Version                       Date                           Checksum
+                0010   2015-05-11T00:00:00.000Z   555f57888cf9bea47e97bf6c9b7e9d3f
+                0020   2015-05-11T00:00:00.000Z   c123fc10e716daf6275dfe67efa1efac
     History of julconnectedevice @ vm21-hulk-priv,vm22-hulk-priv,vm23-hulk-priv:
     
-             Version                       Date
+             Version                       Date                           Checksum
+                0010   2015-05-11T00:00:00.000Z   555f57888cf9bea47e97bf6c9b7e9d3f
+                0020   2015-05-11T00:00:00.000Z   c123fc10e716daf6275dfe67efa1efac
 
 Using a test instance in automated tests
 ----------------------------------------
