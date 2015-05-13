@@ -9,6 +9,7 @@ target/
 **/*.pyc
 *.log
 *.DS_Store
-tree_*.txt
+tree*.txt
 ttree_*.txt
 *_MnuboSchema.json
+config.dump

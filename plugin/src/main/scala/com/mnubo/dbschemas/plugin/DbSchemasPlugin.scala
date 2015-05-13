@@ -29,7 +29,7 @@ object DbSchemasPlugin extends AutoPlugin {
   private val mnuboReleases = "Mnubo releases" at s"$mnuboNexus/libs-release-local/"
   private val dbDependencies = Map(
     "cassandra" -> Seq.empty[ModuleID],
-    "elasticsearch" -> Seq("org.elasticsearch" % "elasticsearch" % "1.4.4"),
+    "elasticsearch" -> Seq("org.elasticsearch" % "elasticsearch" % "1.5.2"),
     "mysql" -> Seq("mysql" % "mysql-connector-java" % "5.1.35")
   )
 
