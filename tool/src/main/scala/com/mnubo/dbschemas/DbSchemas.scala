@@ -20,7 +20,7 @@ object DbSchemas extends App with Logging {
   private val env =
     System.getenv("ENV")
   private val isSensitiveEnvironment =
-    Set(MnuboConfiguration.Dev, MnuboConfiguration.Qa, MnuboConfiguration.Preprod, MnuboConfiguration.Prod).contains(env)
+    Set(MnuboConfiguration.Dev, MnuboConfiguration.Qa, MnuboConfiguration.Preprod, MnuboConfiguration.Sandbox, MnuboConfiguration.Prod).contains(env)
   private val hasInstanceForEachNamespace =
     config.getBoolean("hasInstanceForEachNamespace")
   private val schemaName =
@@ -61,7 +61,20 @@ object DbSchemas extends App with Logging {
   parser.parse(args, DbSchemasArgsConfig()).foreach { argConfig =>
 
     if (argConfig.drop && isSensitiveEnvironment)
-      throw new Exception("Sorry, the --drop option is not available in dev, qa, preprod, or prod.")
+      throw new Exception("Sorry, the --drop option is not available in dev, qa, preprod, sandbox, or prod.")
+
+    val version = argConfig
+      .version
+      .orElse {
+        val cfgVersion = config.getString("schema_version")
+        if (cfgVersion == "latest")
+          None
+        else
+          Some(cfgVersion)
+      }
+
+    if (version.isEmpty && isSensitiveEnvironment)
+      throw new Exception("Sorry, you have to define a 'schema_version' in your 'db.conf' for dev, qa, preprod, sandbox, and prod.")
 
     val namespaces =
       if (hasInstanceForEachNamespace)
@@ -70,7 +83,7 @@ object DbSchemas extends App with Logging {
         Seq(None)
 
     namespaces.foreach { ns =>
-      val cfg = DbMigrationConfig(argConfig, config, ns)
+      val cfg = DbMigrationConfig(argConfig, config, ns, version)
 
       argConfig.cmd match {
         case Migrate =>

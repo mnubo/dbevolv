@@ -42,7 +42,7 @@ object ElasticsearchDatabase extends Database {
 
   private def isStarted(log: String, info: ContainerInfo) =
     isStartedRegex.findFirstIn(log).isDefined &&
-    Try(using(new TransportClient().addTransportAddresses(new InetSocketTransportAddress(Docker.dockerHost, info.realPort))) { tempClient =>
+    Try(using(new TransportClient(ImmutableSettings.builder().classLoader(getClass.getClassLoader).build()).addTransportAddresses(new InetSocketTransportAddress(Docker.dockerHost, info.realPort))) { tempClient =>
       tempClient
         .admin()
         .cluster()
@@ -106,7 +106,6 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, inde
       .setSource(
         "migration_date", df.format(new Date()).asInstanceOf[Any],
         "checksum", checksum)
-      .execute
       .get
       .isCreated)
       throw new Exception(s"Cannot mark migration $migrationVersion as installed")
@@ -116,7 +115,7 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, inde
       .indices
       .prepareFlush(indexName)
       .setForce(true)
-      .setFull(true)
+      .setWaitIfOngoing(true)
       .get
   }
 
@@ -133,7 +132,7 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, inde
       .indices
       .prepareFlush(indexName)
       .setForce(true)
-      .setFull(true)
+      .setWaitIfOngoing(true)
       .get
   }
 

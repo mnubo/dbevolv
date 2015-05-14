@@ -1,0 +1,1 @@
+@@elasticsearchdb.ScalaUp0001;
