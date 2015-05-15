@@ -52,7 +52,12 @@ object DbSchemasPlugin extends AutoPlugin {
     mainClass in assembly                 := Some("com.mnubo.dbschemas.DbSchemas"),
     // We just need the dbschemas library to build a schema. We automatically infer the version to use.
     libraryDependencies                   ++= Seq(
-      "com.mnubo" %% "dbschemas" % dbschemasVersion
+      "com.mnubo" %% "dbschemas" % dbschemasVersion  excludeAll (
+        ExclusionRule("org.joda", "joda-convert"),
+        ExclusionRule("org.slf4j", "slf4j-log4j12"),
+        ExclusionRule("com.sun.jmx", "jmxri"),
+        ExclusionRule("com.sun.jdmk", "jmxtools")
+        )
     ) ++ dbDependencies(config.getString("database_kind")),
     // Give the fat jar a simple name
     assemblyJarName                       := s"$schemaName-schema-manager.jar",

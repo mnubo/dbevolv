@@ -13,3 +13,4 @@ tree*.txt
 ttree_*.txt
 *_MnuboSchema.json
 config.dump
+config/

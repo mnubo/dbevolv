@@ -12,7 +12,10 @@ lazy val tool = (project in file("tool"))
       "org.elasticsearch"       %  "elasticsearch"          % "1.5.2" % "provided",
       "mysql"                   %  "mysql-connector-java"   % "5.1.35" % "provided",
       "com.mnubo"               %  "test-utils"             % "[1.0.61,)" excludeAll (
-        ExclusionRule("org.joda", "joda-convert")
+        ExclusionRule("org.joda", "joda-convert"),
+        ExclusionRule("org.slf4j", "slf4j-log4j12"),
+        ExclusionRule("com.sun.jmx", "jmxri"),
+        ExclusionRule("com.sun.jdmk", "jmxtools")
       ),
       "com.mnubo"               %  "app-util"               % "[1.0.0,)" changing(),
       "com.github.scopt"        %% "scopt"                  % "3.3.0"

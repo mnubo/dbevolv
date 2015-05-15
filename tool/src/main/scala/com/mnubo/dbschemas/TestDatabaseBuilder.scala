@@ -14,21 +14,22 @@ object TestDatabaseBuilder extends App with Logging {
   val doPush = if (args contains "push") true else false
   val defaultConfig = ConfigFactory.load(ConfigParseOptions.defaults().setClassLoader(getClass.getClassLoader))
   val config = MnuboConfiguration.loadConfig(
-    ConfigFactory
+    generalConfig = ConfigFactory
       .parseFile(new File("db.conf"))
       .withFallback(defaultConfig),
-    "workstation")
+    env = "workstation",
+    configDirectory = "config")
   val dbKind = config.getString("database_kind")
   val schemaName = config.getString("schema_name")
   val imageName = s"test-$schemaName"
   val repositoryName = s"$MnuboDockerRegistry/$imageName"
   val db = Database.databases(dbKind)
 
-  logInfo(s"Starting a fresh test $dbKind $schemaName instance ...")
+  log.info(s"Starting a fresh test $dbKind $schemaName instance ...")
   val container = Docker.run(db.testDockerBaseImage)
 
   try {
-    logInfo(s"Creating and migrating test database '$schemaName' to latest version ...")
+    log.info(s"Creating and migrating test database '$schemaName' to latest version ...")
     val images = DatabaseMigrator.getAvailableMigrations.map { schemaVersion =>
       DatabaseMigrator.migrate(DbMigrationConfig(
         db,
@@ -46,12 +47,12 @@ object TestDatabaseBuilder extends App with Logging {
         config
       ))
 
-      logInfo(s"Commiting $dbKind $schemaName test instance to $repositoryName:$schemaVersion...")
+      log.info(s"Commiting $dbKind $schemaName test instance to $repositoryName:$schemaVersion...")
       Docker.stop(container.id)
       val imageId = Docker.commit(container.id, repositoryName, schemaVersion)
 
       if (doPush) {
-        logInfo(s"Publishing $dbKind $schemaName test instance to $repositoryName:$schemaVersion ...")
+        log.info(s"Publishing $dbKind $schemaName test instance to $repositoryName:$schemaVersion ...")
         Docker.push(s"$repositoryName:$schemaVersion")
       }
 
@@ -60,7 +61,7 @@ object TestDatabaseBuilder extends App with Logging {
       imageId
     }
 
-    logInfo(s"Testing rollback procedures...")
+    log.info(s"Testing rollback procedures...")
     val startingVersion = DatabaseMigrator.getAvailableMigrations.head
     DatabaseMigrator.migrate(DbMigrationConfig(
       db,
@@ -80,18 +81,18 @@ object TestDatabaseBuilder extends App with Logging {
 
     if (doPush) {
       images.foreach { imageId =>
-        logInfo(s"Cleaning up image $imageId ...")
+        log.info(s"Cleaning up image $imageId ...")
         Docker.removeImage(imageId)
       }
     }
   }
   catch {
     case NonFatal(ex) =>
-      logError(s"Test database build failed", ex)
+      log.error(s"Test database build failed", ex)
       throw ex
   }
   finally {
-    logInfo(s"Cleaning up container ${container.id} ...")
+    log.info(s"Cleaning up container ${container.id} ...")
     Docker.stop(container.id)
     Docker.remove(container.id)
   }
