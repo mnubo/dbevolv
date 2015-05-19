@@ -96,11 +96,11 @@ object DatabaseMigrator extends Logging {
       stmtFile = StatementFiles.findStatementFile(step, "upgrade.")
       stmts = StatementFiles.parseStatements(stmtFile)
     } {
-      logInfo(s"Executing upgrade $step")
+      log.info(s"Executing upgrade $step")
       stmts.foreach(_.execute(connection, name))
 
       if (applyUpgradesTwice) {
-        logInfo(s"Checking upgrade $step is idempotent")
+        log.info(s"Checking upgrade $step is idempotent")
         stmts.foreach(_.execute(connection, name))
       }
       connection.markMigrationAsInstalled(step, MD5.forStatements(stmtFile, stmts))

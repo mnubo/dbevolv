@@ -34,6 +34,7 @@ The `db.conf` should contain the description of the database schema. You must al
     database_kind = cassandra
     hasInstanceForEachNamespace = false
     schema_name = reverse_geo
+    app_name = reverse_geo-schema-manager
     create_database_statement = "CREATE KEYSPACE @@DATABASE_NAME@@ WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }"
 
     workstation {
@@ -67,6 +68,7 @@ Here are the different parameters you can configure:
 * **database_kind**: which kind of database we are targeting. See "Supported databases" for valid values.
 * **hasInstanceForEachNamespace**: whether this database have a distinct instance for each of the namespaces. Default is 'false' (the database is a 'global' one).
 * **schema_name**: the logical name of this database schema.
+* **app_name**: the name of this schema manager (required by [app-util](http://git-lab1.mtl.mnubo.com/mnubo/app-util/tree/master)).
 * **schema_version**: the migration version the given environment is supposed to be at. If not specified, all migrations will be applied. Specifying it is mandatory for dev, qa, preprod, sandbox, and prod. 
 * **host**: the host or hosts name(s) to connect to.
 * **port**: the port to connect to. Leave empty for default port.

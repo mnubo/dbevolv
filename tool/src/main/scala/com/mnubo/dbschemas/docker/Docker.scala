@@ -71,7 +71,7 @@ object Docker extends Logging {
     exec(s"docker rmi $image")
 
   def exec(cmd: String) = {
-    logInfo(cmd)
+    log.info(cmd)
     if (0 != cmd.!)
       throw new Exception(s"Cannot execute [$cmd].")
   }
@@ -82,7 +82,7 @@ object Docker extends Logging {
     val l = ProcessLogger(o => out.append(o + "\n"), e => err.append(e) + "\n")
 
     if (!cmd.startsWith("docker logs"))
-      logInfo(cmd)
+      log.info(cmd)
 
     Process(cmd) ! l
 
