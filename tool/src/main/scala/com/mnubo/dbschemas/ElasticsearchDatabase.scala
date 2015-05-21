@@ -40,25 +40,36 @@ object ElasticsearchDatabase extends Database {
       additionalOptions = Some("-p 9200")
     )
 
+  private [dbschemas] def newClient(hosts: String, port: Int) = {
+    val settings =
+      ImmutableSettings
+        .builder()
+        .put("client.transport.ignore_cluster_name", true)
+        .classLoader(getClass.getClassLoader)
+        .build()
+
+    val addresses =
+      hosts
+        .split(",")
+        .map(new InetSocketTransportAddress(_, port))
+
+    new TransportClient(settings).addTransportAddresses(addresses: _*)
+  }
+
   private def isStarted(log: String, info: ContainerInfo) =
     isStartedRegex.findFirstIn(log).isDefined &&
-    Try(using(new TransportClient(ImmutableSettings.builder().classLoader(getClass.getClassLoader).build()).addTransportAddresses(new InetSocketTransportAddress(Docker.dockerHost, info.realPort))) { tempClient =>
-      tempClient
-        .admin()
-        .cluster()
-        .prepareHealth()
-        .get
-        .getStatus == ClusterHealthStatus.GREEN
-    }).toOption.getOrElse(false)
-
+      Try(using(newClient(Docker.dockerHost, info.realPort)) { tempClient =>
+        tempClient
+          .admin()
+          .cluster()
+          .prepareHealth()
+          .get
+          .getStatus == ClusterHealthStatus.GREEN
+      }).toOption.getOrElse(false)
 }
 
 class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, indexName: String, config: Config) extends DatabaseConnection with Logging {
-  private val client = {
-    val addresses = hosts.split(",").map(new InetSocketTransportAddress(_, port))
-
-    new TransportClient(ImmutableSettings.builder().classLoader(getClass.getClassLoader).build()).addTransportAddresses(addresses: _*)
-  }
+  private val client = ElasticsearchDatabase.newClient(hosts, port)
   
   private val versionTypeName = s"${schemaName}_version"
 
