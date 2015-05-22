@@ -50,7 +50,7 @@ object DatabaseMigrator extends Logging {
         .map(_._2)
         .getOrElse(availableMigrations.size) - 1
 
-    if (currentIndex > 0)
+    if (currentIndex >= 0)
       log.info(s"Current version is ${availableMigrations(currentIndex)}.")
     else
       log.info(s"This is a brand new database, with no version yet installed.")
