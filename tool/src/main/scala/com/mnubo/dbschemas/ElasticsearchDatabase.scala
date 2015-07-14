@@ -207,21 +207,21 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, inde
     else {
       val currentVersion = installed.last
 
-      val currentSchema = schema(client)
+      val currentSchema = schema(client, indexName)
 
       val expectedSchema = using(DockerElasticsearch(schemaName, currentVersion)) { es =>
-        schema(es.client)
+        schema(es.client, schemaName) // For test ES instances, there is only one index named after the schemaName
       }
 
       expectedSchema.isCompatibleWith(currentSchema)
     }
   }
 
-  private def schema(client: TransportClient): Schema[Map[String, String]] = {
+  private def schema(client: TransportClient, index: String): Schema[Map[String, String]] = {
     val response = client
       .admin
       .indices
-      .prepareGetMappings(indexName)
+      .prepareGetMappings(index)
       .get
 
     Schema(

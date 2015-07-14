@@ -129,20 +129,20 @@ class CassandraConnection(schemaName: String, hosts: String, port: Int, keyspace
     else {
       val currentVersion = installed.last
 
-      val currentSchema = schema(session)
+      val currentSchema = schema(session, keyspace)
 
-      val expectedSchema = using(DockerCassandra(schemaName, currentVersion))(cass => schema(cass.client))
+      val expectedSchema = using(DockerCassandra(schemaName, currentVersion))(cass => schema(cass.client, schemaName))  // For test instances, there is only one keyspace named after the schemaName
 
       expectedSchema.isCompatibleWith(currentSchema)
     }
   }
 
-  private def schema(session: Session) =
+  private def schema(session: Session, ks: String) =
     Schema(
       session
         .getCluster
         .getMetadata
-        .getKeyspace(keyspace)
+        .getKeyspace(ks)
         .getTables
         .asScala
         .map { tbl =>

@@ -126,19 +126,19 @@ class MysqlConnection(schemaName: String,
     else {
       val currentVersion = installed.last
 
-      val currentSchema = schema(connection)
+      val currentSchema = schema(connection, database)
 
-      val expectedSchema = using(DockerMySQL(schemaName, currentVersion))(mysql => schema(mysql.client))
+      val expectedSchema = using(DockerMySQL(schemaName, currentVersion))(mysql => schema(mysql.client, schemaName)) // For test instances, there is only one database named after the schemaName
 
       expectedSchema.isCompatibleWith(currentSchema)
     }
   }
 
-  private def schema(connection: Connection): Schema[Int] = {
+  private def schema(connection: Connection, db: String): Schema[Int] = {
     val meta = connection.getMetaData
 
     Schema(
-      using(meta.getTables(database, null, "%", Array("TABLE"))) { rs =>
+      using(meta.getTables(db, null, "%", Array("TABLE"))) { rs =>
         readResultset(rs)(_.getString("TABLE_NAME"))
           .map { tableName =>
             Table[Int](
