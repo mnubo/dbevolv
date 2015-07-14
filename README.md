@@ -97,7 +97,7 @@ The `plugins.sbt` should point to this plugin on Artifactory:
 
     resolvers += "Mnubo release repository" at "http://artifactory.mtl.mnubo.com:8081/artifactory/libs-release-local/"
 
-    addSbtPlugin("com.mnubo" % "dbschemas-sbt-plugin" % "[1.13.142,)" changing())
+    addSbtPlugin("com.mnubo" % "dbschemas-sbt-plugin" % "[1.13.245,)" changing())
 
 The directories names in `/migrations` constitute the migration versions. Migrations will be applied in the lexical order of those directory names. Ex: when asking dbschema to upgrade to version '0002' in the above example, '0001' will be executed first, then '0002'.
 
