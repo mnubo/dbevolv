@@ -30,7 +30,7 @@ object DatabaseMigrator extends Logging {
       createDatabaseStatement,
       wholeConfig
     )) { connection =>
-      if (drop) connection.dropDatabase
+      if (drop) connection.dropDatabase()
       migrate(MigrationContext(connection, name, version, skipSchemaVerification, applyUpgradesTwice))
     }
   }
@@ -38,9 +38,13 @@ object DatabaseMigrator extends Logging {
   private def migrate(ctx: MigrationContext): MigrationReport = {
     val availableMigrations = getAvailableMigrations
     val installedMigrations = ctx.connection.getInstalledMigrationVersions
+    val installedMigrationVersions = installedMigrations.map(_.version)
+
+    log.info(s"available migrations: $availableMigrations")
+    log.info(s"installed migrations: $installedMigrationVersions")
+
     validateInstalledMigrations(installedMigrations)
 
-    val installedMigrationVersions = installedMigrations.map(_.version)
     val target = ctx.targetVersion.getOrElse(availableMigrations.last)
 
     val currentIndex =
@@ -50,10 +54,15 @@ object DatabaseMigrator extends Logging {
         .map(_._2)
         .getOrElse(availableMigrations.size) - 1
 
-    if (currentIndex >= 0)
-      log.info(s"Current version is ${availableMigrations(currentIndex)}.")
-    else
-      log.info(s"This is a brand new database, with no version yet installed.")
+    val downwardCtx =
+      if (currentIndex >= 0) {
+        log.info(s"Current version is ${availableMigrations(currentIndex)}.")
+        ctx
+      }
+      else {
+        log.info(s"This is a brand new database, with no version yet installed.")
+        ctx.copy(skipSchemaVerification = true) // Don't need to validate an empty schema if the database is new
+      }
 
     val targetIndex =
       availableMigrations
@@ -63,9 +72,9 @@ object DatabaseMigrator extends Logging {
         ._2
 
     if (currentIndex > targetIndex)
-      downgrade(ctx, availableMigrations.slice(targetIndex + 1, currentIndex + 1).reverse)
+      downgrade(downwardCtx, availableMigrations.slice(targetIndex + 1, currentIndex + 1).reverse)
     else if (currentIndex < targetIndex)
-      upgrade(ctx, availableMigrations.slice(currentIndex + 1, targetIndex + 1))
+      upgrade(downwardCtx, availableMigrations.slice(currentIndex + 1, targetIndex + 1))
     else
       () // Nothing to do, already at the right target version
 
