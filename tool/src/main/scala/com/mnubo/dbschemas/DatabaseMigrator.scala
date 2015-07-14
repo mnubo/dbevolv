@@ -38,10 +38,13 @@ object DatabaseMigrator extends Logging {
   private def migrate(ctx: MigrationContext): MigrationReport = {
     val availableMigrations = getAvailableMigrations
     val installedMigrations = ctx.connection.getInstalledMigrationVersions
-    val installedMigrationVersions = installedMigrations.map(_.version)
+    val installedMigrationVersions = installedMigrations.map(_.version).toSeq.sorted
 
-    log.info(s"available migrations: $availableMigrations")
-    log.info(s"installed migrations: $installedMigrationVersions")
+    log.info(s"available migrations: ${availableMigrations.mkString(",")}")
+    log.info(s"installed migrations: ${installedMigrationVersions.mkString(",")}")
+
+    if (!availableMigrations.startsWith(installedMigrationVersions))
+      throw new Exception("CRITICAL: the migrations installed are not the expected ones.")
 
     validateInstalledMigrations(installedMigrations)
 
