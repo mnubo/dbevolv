@@ -17,6 +17,9 @@ object DbSchemas extends App with Logging {
             .withFallback(ConfigFactory.load())
         )
       )
+      .withFallback(
+        ConfigFactory.load()
+      )
   private val env =
     System.getenv("ENV")
   private val isSensitiveEnvironment =
