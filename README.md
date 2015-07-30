@@ -94,11 +94,15 @@ The `build.properties` file should contain which SBT version to use:
 
     sbt.version=0.13.8
 
-The `plugins.sbt` should point to this plugin on Artifactory:
+The `plugins.sbt` should point to this plugin on Artifactory (the funky piece of code make sure to always use the latest version available from Artifactory):
 
     resolvers += "Mnubo release repository" at "http://artifactory.mtl.mnubo.com:8081/artifactory/libs-release-local/"
-
-    addSbtPlugin("com.mnubo" % "dbschemas-sbt-plugin" % "[1.13.280,)" changing())
+    
+    val latestPluginVersion = Using.urlInputStream(new URL("http://artifactory.mtl.mnubo.com:8081/artifactory/libs-release-local/com/mnubo/dbschemas_2.10/maven-metadata.xml")) { stream =>
+      """<latest>([\d\.]+)</latest>""".r.findFirstMatchIn(IO.readStream(stream)).get.group(1)
+    }
+    
+    addSbtPlugin("com.mnubo" % "dbschemas-sbt-plugin" % latestPluginVersion)
 
 The directories names in `/migrations` constitute the migration versions. Migrations will be applied in the lexical order of those directory names. Ex: when asking dbschema to upgrade to version '0002' in the above example, '0001' will be executed first, then '0002'.
 
