@@ -29,7 +29,8 @@ object CassandraDatabase extends Database {
       if (port > 0) port else 9042,
       keyspace,
       createDatabaseStatement,
-      config.getInt("max_schema_agreement_wait_seconds")
+      config.getInt("max_schema_agreement_wait_seconds"),
+      config.getBoolean("force_pull_verification_db")
     )
 
   override def testDockerBaseImage =
@@ -40,7 +41,14 @@ object CassandraDatabase extends Database {
     )
 }
 
-class CassandraConnection(schemaName: String, hosts: String, port: Int, keyspace: String, createDatabaseStatement: String, maxSchemaAgreementWaitSeconds: Int) extends DatabaseConnection {
+class CassandraConnection(
+                           schemaName: String,
+                           hosts: String,
+                           port: Int,
+                           keyspace: String,
+                           createDatabaseStatement: String,
+                           maxSchemaAgreementWaitSeconds: Int,
+                           forcePullVerificationDb: Boolean) extends DatabaseConnection {
   private val cluster = Cluster
     .builder()
     .addContactPoints(hosts.split(","): _*)
@@ -139,7 +147,7 @@ class CassandraConnection(schemaName: String, hosts: String, port: Int, keyspace
 
       val currentSchema = schema(session, keyspace)
 
-      val expectedSchema = using(DockerCassandra(schemaName, currentVersion))(cass => schema(cass.client, schemaName))  // For test instances, there is only one keyspace named after the schemaName
+      val expectedSchema = using(DockerCassandra(schemaName, currentVersion, forcePullVerificationDb))(cass => schema(cass.client, schemaName))  // For test instances, there is only one keyspace named after the schemaName
 
       expectedSchema.isCompatibleWith(currentSchema)
     }

@@ -23,7 +23,15 @@ object MysqlDatabase extends Database {
                               database: String,
                               createDatabaseStatement: String,
                               config: Config): DatabaseConnection =
-    new MysqlConnection(schemaName, host, if (port > 0) port else 3306, database, userName, pwd, createDatabaseStatement)
+    new MysqlConnection(
+      schemaName,
+      host,
+      if (port > 0) port else 3306,
+      database,
+      userName,
+      pwd,
+      createDatabaseStatement,
+      config.getBoolean("force_pull_verification_db"))
 
   override def testDockerBaseImage =
     DatabaseDockerImage(
@@ -42,7 +50,8 @@ class MysqlConnection(schemaName: String,
                       database: String,
                       userName: String,
                       pwd: String,
-                      createDatabaseStatement: String) extends DatabaseConnection {
+                      createDatabaseStatement: String,
+                      forcePullVerificationDb: Boolean) extends DatabaseConnection {
   private val connection = DriverManager.getConnection(s"jdbc:mysql://$host:$port", userName, pwd)
   private val df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
   df.setTimeZone(TimeZone.getTimeZone("UTC"))
@@ -128,7 +137,7 @@ class MysqlConnection(schemaName: String,
 
       val currentSchema = schema(connection, database)
 
-      val expectedSchema = using(DockerMySQL(schemaName, currentVersion))(mysql => schema(mysql.client, schemaName)) // For test instances, there is only one database named after the schemaName
+      val expectedSchema = using(DockerMySQL(schemaName, currentVersion, forcePullVerificationDb))(mysql => schema(mysql.client, schemaName)) // For test instances, there is only one database named after the schemaName
 
       expectedSchema.isCompatibleWith(currentSchema)
     }

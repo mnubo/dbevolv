@@ -30,7 +30,12 @@ object ElasticsearchDatabase extends Database {
                               indexName: String,
                               createDatabaseStatement: String,
                               config: Config): DatabaseConnection =
-    new ElasticsearchConnection(schemaName, hosts, if (port > 0) port else 9300, indexName, config)
+    new ElasticsearchConnection(
+      schemaName,
+      hosts,
+      if (port > 0) port else 9300,
+      indexName,
+      config)
 
   override def testDockerBaseImage =
     DatabaseDockerImage(
@@ -70,6 +75,7 @@ object ElasticsearchDatabase extends Database {
 
 class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, indexName: String, config: Config) extends DatabaseConnection with Logging {
   private val client = ElasticsearchDatabase.newClient(hosts, port)
+  private val forcePullVerificationDb = config.getBoolean("force_pull_verification_db")
   
   private val versionTypeName = s"${schemaName}_version"
 
@@ -209,7 +215,7 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, inde
 
       val currentSchema = schema(client, indexName)
 
-      val expectedSchema = using(DockerElasticsearch(schemaName, currentVersion)) { es =>
+      val expectedSchema = using(DockerElasticsearch(schemaName, currentVersion, forcePullVerificationDb)) { es =>
         schema(es.client, schemaName) // For test ES instances, there is only one index named after the schemaName
       }
 
