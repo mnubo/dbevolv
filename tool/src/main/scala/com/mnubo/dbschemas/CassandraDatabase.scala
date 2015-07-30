@@ -23,7 +23,14 @@ object CassandraDatabase extends Database {
                               keyspace: String,
                               createDatabaseStatement: String,
                               config: Config): DatabaseConnection =
-    new CassandraConnection(schemaName, hosts, if (port > 0) port else 9042, keyspace, createDatabaseStatement)
+    new CassandraConnection(
+      schemaName,
+      hosts,
+      if (port > 0) port else 9042,
+      keyspace,
+      createDatabaseStatement,
+      config.getInt("max_schema_agreement_wait_seconds")
+    )
 
   override def testDockerBaseImage =
     DatabaseDockerImage(
@@ -33,10 +40,11 @@ object CassandraDatabase extends Database {
     )
 }
 
-class CassandraConnection(schemaName: String, hosts: String, port: Int, keyspace: String, createDatabaseStatement: String) extends DatabaseConnection {
+class CassandraConnection(schemaName: String, hosts: String, port: Int, keyspace: String, createDatabaseStatement: String, maxSchemaAgreementWaitSeconds: Int) extends DatabaseConnection {
   private val cluster = Cluster
     .builder()
     .addContactPoints(hosts.split(","): _*)
+    .withMaxSchemaAgreementWaitSeconds(maxSchemaAgreementWaitSeconds)
     .withPort(port)
     .build()
   private val session = cluster.connect()

@@ -78,6 +78,7 @@ Here are the different parameters you can configure:
 * **name_provider_class**: See "Computing the database name / schema name / index name / keyspace" below.
 * **shard_number**: for Elasticsearch, how many shards the index should have.
 * **replica_number**: for Elasticsearch, in how many additional replicas each shard should be replicated (0 means no replication).
+* **max_schema_agreement_wait_seconds**: for Cassandra, sets the maximum time to wait for schema agreement before returning from a DDL query (default: 10).
 
 Note: most of the settings can have a default value at the top, but can be overriden for a given environment. See for example `create_database_statement` in the above example.
 
@@ -97,7 +98,7 @@ The `plugins.sbt` should point to this plugin on Artifactory:
 
     resolvers += "Mnubo release repository" at "http://artifactory.mtl.mnubo.com:8081/artifactory/libs-release-local/"
 
-    addSbtPlugin("com.mnubo" % "dbschemas-sbt-plugin" % "[1.13.258,)" changing())
+    addSbtPlugin("com.mnubo" % "dbschemas-sbt-plugin" % "[1.13.280,)" changing())
 
 The directories names in `/migrations` constitute the migration versions. Migrations will be applied in the lexical order of those directory names. Ex: when asking dbschema to upgrade to version '0002' in the above example, '0001' will be executed first, then '0002'.
 
