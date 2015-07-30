@@ -54,7 +54,7 @@ object Docker extends Logging {
 
   def commit(container: String, repository: String, tag: String): String = {
     val imageId =
-      execAndRead(s"docker commit $container $repository:$tag")
+      execAndRead(s"docker commit -p $container $repository:$tag")
 
     exec(s"docker tag -f $imageId $repository:latest")
 

@@ -78,7 +78,7 @@ Here are the different parameters you can configure:
 * **name_provider_class**: See "Computing the database name / schema name / index name / keyspace" below.
 * **shard_number**: for Elasticsearch, how many shards the index should have.
 * **replica_number**: for Elasticsearch, in how many additional replicas each shard should be replicated (0 means no replication).
-* **max_schema_agreement_wait_seconds**: for Cassandra, sets the maximum time to wait for schema agreement before returning from a DDL query (default: 10).
+* **max_schema_agreement_wait_seconds**: for Cassandra, sets the maximum time to wait for schema agreement before returning from a DDL query (default: 30).
 
 Note: most of the settings can have a default value at the top, but can be overriden for a given environment. See for example `create_database_statement` in the above example.
 

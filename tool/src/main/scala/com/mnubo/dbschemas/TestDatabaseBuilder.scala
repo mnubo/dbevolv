@@ -48,7 +48,6 @@ object TestDatabaseBuilder extends App with Logging {
       ))
 
       log.info(s"Commiting $dbKind $schemaName test instance to $repositoryName:$schemaVersion...")
-      Docker.stop(container.id)
       val imageId = Docker.commit(container.id, repositoryName, schemaVersion)
 
       if (doPush) {
@@ -56,7 +55,7 @@ object TestDatabaseBuilder extends App with Logging {
         Docker.push(s"$repositoryName:$schemaVersion")
       }
 
-      Docker.start(container, db.testDockerBaseImage.isStarted)
+      //Docker.start(container, db.testDockerBaseImage.isStarted)
 
       imageId
     }
