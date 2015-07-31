@@ -1,35 +1,24 @@
 lazy val root = (project in file("."))
   .enablePlugins(MnuboLibraryPlugin)
   .settings(publish := { })
-  .aggregate(tool, plugin, migrator)
+  .aggregate(tool, plugin)
 
 lazy val tool = (project in file("tool"))
   .enablePlugins(MnuboLibraryPlugin)
   .settings(
     name := "dbschemas",
     libraryDependencies ++= Seq(
-      "com.datastax.cassandra"  %  "cassandra-driver-core"  % "2.1.4",
-      "org.elasticsearch"       %  "elasticsearch"          % "1.5.2" % "provided",
-      "mysql"                   %  "mysql-connector-java"   % "5.1.35" % "provided",
+      "com.mnubo"               %  "app-util"               % "[1.0.0,)" changing(),
       "com.mnubo"               %  "test-utils"             % "[1.0.61,)" excludeAll (
         ExclusionRule("org.slf4j", "slf4j-log4j12"),
         ExclusionRule("com.sun.jmx", "jmxri"),
         ExclusionRule("com.sun.jdmk", "jmxtools")
-      ),
-      "com.mnubo"               %  "app-util"               % "[1.0.0,)" changing(),
+        ) changing(),
+      "com.datastax.cassandra"  %  "cassandra-driver-core"  % "2.1.4",
+      "org.elasticsearch"       %  "elasticsearch"          % "1.5.2" % "provided",
+      "mysql"                   %  "mysql-connector-java"   % "5.1.35" % "provided",
+      "joda-time"               %  "joda-time"              % "2.7",
       "com.github.scopt"        %% "scopt"                  % "3.3.0"
-    )
-  )
-
-lazy val migrator = (project in file("migrator"))
-  .enablePlugins(MnuboLibraryPlugin)
-  .settings(
-    name := "migrator",
-    publish := {}, // We don't want to publish this guy
-    libraryDependencies ++= Seq(
-      "com.mnubo"               %  "app-util"               % "[1.0.0,)" changing(),
-      "commons-io"              % "commons-io"              % "2.4",
-      "com.google.code.gson"    %  "gson"                   % "2.3.1"
     )
   )
 
