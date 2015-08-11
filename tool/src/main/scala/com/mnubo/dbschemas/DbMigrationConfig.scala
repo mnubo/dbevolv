@@ -8,7 +8,9 @@ case class DbMigrationConfig(connection: DatabaseConnection,
                              version: Option[String],
                              skipSchemaVerification: Boolean,
                              applyUpgradesTwice: Boolean,
-                             wholeConfig: Config)
+                             wholeConfig: Config) {
+  connection.setActiveSchema(name)
+}
 
 case class DbSchemasArgsConfig(drop: Boolean = false,
                                version: Option[String] = None,
@@ -27,8 +29,6 @@ object DbMigrationConfig {
         .asInstanceOf[DatabaseNameProvider]
 
     val name = nameProvider.computeDatabaseName(schemaName, namespace)
-
-    connection.setActiveSchema(name)
 
     DbMigrationConfig(
       connection,
