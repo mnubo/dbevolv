@@ -27,14 +27,12 @@ object ElasticsearchDatabase extends Database {
                               port: Int,
                               userName: String,
                               pwd: String,
-                              indexName: String,
                               createDatabaseStatement: String,
                               config: Config): DatabaseConnection =
     new ElasticsearchConnection(
       schemaName,
       hosts,
       if (port > 0) port else 9300,
-      indexName,
       config)
 
   override def testDockerBaseImage =
@@ -73,7 +71,7 @@ object ElasticsearchDatabase extends Database {
       }).toOption.getOrElse(false)
 }
 
-class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, indexName: String, config: Config) extends DatabaseConnection with Logging {
+class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, config: Config) extends DatabaseConnection with Logging {
   private val client = ElasticsearchDatabase.newClient(hosts, port)
   private val forcePullVerificationDb = config.getBoolean("force_pull_verification_db")
   
@@ -81,7 +79,12 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, inde
 
   private val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
 
-  if (!indexExists) createIndex()
+  private var indexName: String = null
+
+  override def setActiveSchema(indexName: String) {
+    this.indexName = indexName
+    if (!indexExists) createIndex()
+  }
 
   override def execute(smt: String): Unit =
     throw new Exception("The Elasticsearch database does not support SQL statements, just @@package.class scripts.")

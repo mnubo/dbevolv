@@ -1,8 +1,10 @@
-package com.mnubo.dbschemas
+package com.mnubo
+package dbschemas
 
 import java.io.File
 
 import com.mnubo.app_util.{Logging, MnuboConfiguration}
+import com.mnubo.dbschemas.DbMigrationConfig._
 import com.mnubo.dbschemas.docker.Docker
 import com.typesafe.config.{Config, ConfigFactory}
 
@@ -85,19 +87,28 @@ object DbSchemas extends App with Logging {
       else
         Seq(None)
 
-    namespaces.foreach { ns =>
-      val cfg = DbMigrationConfig(argConfig, config, ns, version)
+    using(Database.databases(config.getString("database_kind")).openConnection(
+      schemaName,
+      config.getString("host"),
+      config.getInt("port"),
+      config.getString("username"),
+      config.getString("password"),
+      config.getString("create_database_statement"),
+      config
+    )) { connection =>
+      namespaces.foreach { ns =>
+        val cfg = DbMigrationConfig(connection, argConfig, config, ns, version)
 
-      argConfig.cmd match {
-        case Migrate =>
-          DatabaseMigrator.migrate(cfg)
-        case DisplayHistory =>
-          DatabaseInspector.displayHistory(cfg)
+        argConfig.cmd match {
+          case Migrate =>
+            DatabaseMigrator.migrate(cfg)
+          case DisplayHistory =>
+            DatabaseInspector.displayHistory(cfg)
+        }
       }
     }
   }
 }
-
 
 sealed trait DbCommand
 case object Migrate extends DbCommand

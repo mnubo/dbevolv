@@ -13,13 +13,13 @@ trait Database {
                      port: Int,
                      userName: String,
                      pwd: String,
-                     schema: String,
                      createDatabaseStatement: String,
                      config: Config): DatabaseConnection
   def testDockerBaseImage: DatabaseDockerImage
 }
 
 trait DatabaseConnection extends Closeable {
+  def setActiveSchema(schema: String)
   /** For tests, or QA, we might want to recreate a database instance from scratch. Implementors should know how to properly clean an existing database. */
   def dropDatabase(): Unit
   def execute(smt: String): Unit
