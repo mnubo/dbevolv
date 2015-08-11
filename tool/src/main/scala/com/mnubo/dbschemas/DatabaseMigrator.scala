@@ -18,21 +18,10 @@ object DatabaseMigrator extends Logging {
   def migrate(config: DbMigrationConfig): MigrationReport = {
     import config._
 
-    log.info(s"Will upgrade $name @ $host to ${version.getOrElse("latest")} version.")
+    log.info(s"Will upgrade $name to ${version.getOrElse("latest")} version.")
 
-    using(db.openConnection(
-      schemaName,
-      host,
-      port,
-      username,
-      password,
-      name,
-      createDatabaseStatement,
-      wholeConfig
-    )) { connection =>
-      if (drop) connection.dropDatabase()
-      migrate(MigrationContext(connection, name, version, skipSchemaVerification, applyUpgradesTwice))
-    }
+    if (drop) config.connection.dropDatabase()
+    migrate(MigrationContext(config.connection, name, version, skipSchemaVerification, applyUpgradesTwice))
   }
 
   private def migrate(ctx: MigrationContext): MigrationReport = {

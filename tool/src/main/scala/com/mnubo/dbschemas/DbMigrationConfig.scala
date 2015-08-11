@@ -2,14 +2,8 @@ package com.mnubo.dbschemas
 
 import com.typesafe.config.Config
 
-case class DbMigrationConfig(db: Database,
-                             schemaName: String,
-                             host: String,
-                             port: Int,
-                             username: String,
-                             password: String,
+case class DbMigrationConfig(connection: DatabaseConnection,
                              name: String,
-                             createDatabaseStatement: String,
                              drop: Boolean,
                              version: Option[String],
                              skipSchemaVerification: Boolean,
@@ -21,7 +15,7 @@ case class DbSchemasArgsConfig(drop: Boolean = false,
                                cmd: DbCommand = Migrate)
 
 object DbMigrationConfig {
-  def apply(args: DbSchemasArgsConfig, config: Config, namespace: Option[String], version: Option[String]): DbMigrationConfig = {
+  def apply(connection: DatabaseConnection, args: DbSchemasArgsConfig, config: Config, namespace: Option[String], version: Option[String]): DbMigrationConfig = {
     val schemaName =
       config.getString("schema_name")
 
@@ -32,18 +26,13 @@ object DbMigrationConfig {
         .newInstance()
         .asInstanceOf[DatabaseNameProvider]
 
-    val name =
-      nameProvider.computeDatabaseName(schemaName, namespace)
+    val name = nameProvider.computeDatabaseName(schemaName, namespace)
+
+    connection.setActiveSchema(name)
 
     DbMigrationConfig(
-      Database.databases(config.getString("database_kind")),
-      schemaName,
-      config.getString("host"),
-      config.getInt("port"),
-      config.getString("username"),
-      config.getString("password"),
-      nameProvider.computeDatabaseName(schemaName, namespace),
-      config.getString("create_database_statement").replace("@@DATABASE_NAME@@", name),
+      connection,
+      name,
       args.drop,
       version,
       skipSchemaVerification = false,

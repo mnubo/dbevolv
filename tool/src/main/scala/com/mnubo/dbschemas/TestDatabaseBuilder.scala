@@ -31,21 +31,25 @@ object TestDatabaseBuilder extends App with Logging {
   try {
     log.info(s"Creating and migrating test database '$schemaName' to latest version ...")
     val images = DatabaseMigrator.getAvailableMigrations.map { schemaVersion =>
-      DatabaseMigrator.migrate(DbMigrationConfig(
-        db,
+      using(db.openConnection(
         schemaName,
         Docker.dockerHost,
         container.realPort,
         db.testDockerBaseImage.username,
         db.testDockerBaseImage.password,
-        schemaName,
-        config.getString("create_database_statement").replace("@@DATABASE_NAME@@", schemaName),
-        drop = false,
-        Some(schemaVersion),
-        skipSchemaVerification = true,
-        applyUpgradesTwice = true,
+        config.getString("create_database_statement"),
         config
-      ))
+      )) { connection =>
+        DatabaseMigrator.migrate(DbMigrationConfig(
+          connection,
+          schemaName,
+          drop = false,
+          Some(schemaVersion),
+          skipSchemaVerification = true,
+          applyUpgradesTwice = true,
+          config
+        ))
+      }
 
       log.info(s"Commiting $dbKind $schemaName test instance to $repositoryName:$schemaVersion...")
       val imageId = Docker.commit(container.id, repositoryName, schemaVersion)
@@ -62,21 +66,25 @@ object TestDatabaseBuilder extends App with Logging {
 
     log.info(s"Testing rollback procedures...")
     val startingVersion = DatabaseMigrator.getAvailableMigrations.head
-    DatabaseMigrator.migrate(DbMigrationConfig(
-      db,
+    using(db.openConnection(
       schemaName,
       Docker.dockerHost,
       container.realPort,
       db.testDockerBaseImage.username,
       db.testDockerBaseImage.password,
-      schemaName,
-      config.getString("create_database_statement").replace("@@DATABASE_NAME@@", schemaName),
-      drop = false,
-      Some(startingVersion),
-      skipSchemaVerification = true,
-      applyUpgradesTwice = false,
+      config.getString("create_database_statement"),
       config
-    ))
+    )) { connection =>
+      DatabaseMigrator.migrate(DbMigrationConfig(
+        connection,
+        schemaName,
+        drop = false,
+        Some(startingVersion),
+        skipSchemaVerification = true,
+        applyUpgradesTwice = false,
+        config
+      ))
+    }
 
     if (doPush) {
       images.foreach { imageId =>

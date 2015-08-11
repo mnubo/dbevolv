@@ -20,14 +20,12 @@ object CassandraDatabase extends Database {
                               port: Int,
                               userName: String,
                               pwd: String,
-                              keyspace: String,
                               createDatabaseStatement: String,
                               config: Config): DatabaseConnection =
     new CassandraConnection(
       schemaName,
       hosts,
       if (port > 0) port else 9042,
-      keyspace,
       createDatabaseStatement,
       config.getInt("max_schema_agreement_wait_seconds"),
       config.getBoolean("force_pull_verification_db")
@@ -45,7 +43,6 @@ class CassandraConnection(
                            schemaName: String,
                            hosts: String,
                            port: Int,
-                           keyspace: String,
                            createDatabaseStatement: String,
                            maxSchemaAgreementWaitSeconds: Int,
                            forcePullVerificationDb: Boolean) extends DatabaseConnection {
@@ -57,10 +54,13 @@ class CassandraConnection(
     .build()
   private val session = cluster.connect()
   private val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
+  private var keyspace: String = null
 
-  if (!hasKeyspace) execute(createDatabaseStatement)
-
-  execute("USE " + keyspace)
+  override def setActiveSchema(keyspace: String) {
+    this.keyspace = keyspace
+    if (!hasKeyspace) execute(createDatabaseStatement)
+    execute("USE " + keyspace)
+  }
 
   override def execute(smt: String): Unit =
     session.execute(smt)
@@ -79,7 +79,7 @@ class CassandraConnection(
 
     execute("DROP KEYSPACE " + keyspace)
 
-    execute(createDatabaseStatement)
+    execute(createDatabaseStatement.replace("@@DATABASE_NAME@@", keyspace))
 
     execute("USE " + keyspace)
   }
