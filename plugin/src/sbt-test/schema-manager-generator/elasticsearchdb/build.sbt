@@ -169,7 +169,7 @@ TaskKey[Unit]("check-mgr") := {
       runShellAndListen(s"$mgrCmd --history")
     logger.info(history)
     val historyRegex =
-      ("""History of elasticsearchdb @ elasticsearch:\s+Version\s+Date\s+Checksum\s+0001\s+\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d.\d\d\dZ\s+""" + checksum1 + """\s+0002\s+\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d.\d\d\dZ\s+""" + checksum2).r
+      ("""History of elasticsearchdb:\s+Version\s+Date\s+Checksum\s+0001\s+\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d.\d\d\dZ\s+""" + checksum1 + """\s+0002\s+\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d.\d\d\dZ\s+""" + checksum2).r
     assert(
        historyRegex.findFirstIn(history).isDefined,
       "The schema manager did not report history properly."
