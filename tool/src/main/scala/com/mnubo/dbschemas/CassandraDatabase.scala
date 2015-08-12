@@ -58,7 +58,7 @@ class CassandraConnection(
 
   override def setActiveSchema(keyspace: String) {
     this.keyspace = keyspace
-    if (!hasKeyspace) execute(createDatabaseStatement)
+    if (!hasKeyspace) execute(createDatabaseStatement.replace("@@DATABASE_NAME@@", keyspace))
     execute("USE " + keyspace)
   }
 

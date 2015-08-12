@@ -1,3 +1,25 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+**Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
+
+- [dbschemas](#dbschemas)
+  - [Supported databases](#supported-databases)
+- [Usage](#usage)
+  - [Writing database migrations](#writing-database-migrations)
+  - [Building more complex upgrade / downgrade scripts](#building-more-complex-upgrade--downgrade-scripts)
+  - [Migration design guidelines](#migration-design-guidelines)
+  - [Computing the database name / schema name / index name / keyspace (depending on underlying db kind)](#computing-the-database-name--schema-name--index-name--keyspace-depending-on-underlying-db-kind)
+  - [Testing your newly added script locally before committing](#testing-your-newly-added-script-locally-before-committing)
+  - [Project examples](#project-examples)
+  - [Upgrading / downgrading a database](#upgrading--downgrading-a-database)
+    - [Behaviour](#behaviour)
+  - [Inspecting the migrations inside a schema manager](#inspecting-the-migrations-inside-a-schema-manager)
+  - [Getting the list of already installed migrations in a database](#getting-the-list-of-already-installed-migrations-in-a-database)
+  - [Using a test instance in automated tests](#using-a-test-instance-in-automated-tests)
+- [Development](#development)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 dbschemas
 =========
 
@@ -281,4 +303,13 @@ For example, with the Cassandra reverse_geo database:
 
 This will start a Cassandra instance, with a `reverse_geo` keyspace (the logical database name) containing all the reverse_geo tables up to date. You can point your tests to use the 40155 port on the DOCKER_HOST in order to create a session.
 
+Development
+===========
 
+The schema manager builder is actually a SBT plugin. To test the sbt plugin, we are using the scripted sbt plugin (yes, a pluging to test a plugin...). To launch the (quite long) tests, do:
+
+    sbt publishLocal scripted
+
+And go fetch a cup of coffee, you'll have time.
+
+Documentation for the scripted plugin is not the best. You can find a tutorial here: [Testing SBT plugins](http://eed3si9n.com/testing-sbt-plugins)
