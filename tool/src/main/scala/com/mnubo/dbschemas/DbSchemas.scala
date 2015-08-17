@@ -42,6 +42,10 @@ object DbSchemas extends App with Logging {
       opt[String]('v', "version") action { (x, c) =>
         c.copy(version = Some(x)) } text "The version you want to upgrade / downgrade to. If not specified, will upagrade to latest version."
 
+      if (hasInstanceForEachNamespace)
+        opt[String]('n', "namespace") action { (x, c) =>
+          c.copy(namespace = Some(x)) } text "The namespace you want to upgrade / downgrade to. If not specified, will upagrade all namespaces."
+
       if (!isSensitiveEnvironment) {
         opt[Unit]("drop") action { (_, c) =>
           c.copy(drop = true)
@@ -82,7 +86,9 @@ object DbSchemas extends App with Logging {
       throw new Exception("Sorry, you have to define a 'schema_version' in your 'db.conf' for dev, qa, preprod, sandbox, and prod.")
 
     val namespaces =
-      if (hasInstanceForEachNamespace)
+      if (argConfig.namespace.isDefined)
+        Seq(argConfig.namespace)
+      else if (hasInstanceForEachNamespace)
         new CassandraNamespaceRepository(config).fetchNamespaces.map(Some(_))
       else
         Seq(None)

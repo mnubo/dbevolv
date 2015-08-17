@@ -232,6 +232,8 @@ This should result to something like:
 
       -v <value> | --version <value>
             The version you want to upgrade / downgrade to. If not specified, will upgrade to latest version.
+      -n <value> | --namespace <value>
+            The namespace you want to upgrade / downgrade to. If not specified, will upagrade all namespaces.
       --history
             Display history of database migrations instead of migrating the database.
       --help

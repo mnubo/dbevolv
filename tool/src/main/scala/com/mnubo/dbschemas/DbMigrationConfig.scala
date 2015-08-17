@@ -14,7 +14,8 @@ case class DbMigrationConfig(connection: DatabaseConnection,
 
 case class DbSchemasArgsConfig(drop: Boolean = false,
                                version: Option[String] = None,
-                               cmd: DbCommand = Migrate)
+                               cmd: DbCommand = Migrate,
+                               namespace: Option[String] = None)
 
 object DbMigrationConfig {
   def apply(connection: DatabaseConnection, args: DbSchemasArgsConfig, config: Config, namespace: Option[String], version: Option[String]): DbMigrationConfig = {
