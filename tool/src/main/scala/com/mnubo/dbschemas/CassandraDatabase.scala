@@ -4,7 +4,7 @@ package dbschemas
 import java.text.SimpleDateFormat
 import java.util.Date
 
-import com.datastax.driver.core.{Session, Cluster}
+import com.datastax.driver.core.{ConsistencyLevel, SimpleStatement, Session, Cluster}
 import com.mnubo.test_utils.cassandra.DockerCassandra
 import com.typesafe.config.Config
 import org.joda.time.{DateTimeZone, DateTime}
@@ -63,7 +63,7 @@ class CassandraConnection(
   }
 
   override def execute(smt: String): Unit =
-    session.execute(smt)
+    session.execute(new SimpleStatement(smt).setConsistencyLevel(ConsistencyLevel.ALL))
 
   override def innerConnection: AnyRef =
     session
