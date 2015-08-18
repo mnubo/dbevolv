@@ -40,12 +40,14 @@ sealed trait Statement {
   def execute(conn: DatabaseConnection, databaseName: String)
 }
 
-case class StringStatement(statementText: String) extends Statement {
-  override def execute(conn: DatabaseConnection, databaseName: String) =
+case class StringStatement(statementText: String) extends Statement with Logging {
+  override def execute(conn: DatabaseConnection, databaseName: String) = {
+    log.debug(s"Executing $statementText")
     conn.execute(statementText)
+  }
 }
 
-case class ClassStatement(className: String) extends Statement {
+case class ClassStatement(className: String) extends Statement with Logging {
   private val c = getClass.getClassLoader.loadClass(className)
   private lazy val scripInstance = c.newInstance()
   private lazy val executeMethod = c.getMethods.find(_.getName == "execute").get
@@ -56,6 +58,8 @@ case class ClassStatement(className: String) extends Statement {
     candidates.find(new File(_).exists())
   }
 
-  override def execute(conn: DatabaseConnection, databaseName: String) =
+  override def execute(conn: DatabaseConnection, databaseName: String) = {
+    log.debug(s"Executing $className")
     executeMethod.invoke(scripInstance, conn.innerConnection, databaseName)
+  }
 }
