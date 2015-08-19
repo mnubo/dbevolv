@@ -253,6 +253,19 @@ The schema manager will upgrade one namespace at a time. For each namespace, it 
 
 The schema manager will also perform some validation before starting to upgrade. It will check that the schema of the target instance match the expected schema (tables, columns, types).
 
+### Common errors
+
+If the database has been corrupted so that smooth migration is impossible, you will see a message explaining the issue(s) encountered and how to fix it:
+
+    18:10:04.988 [main] ERROR com.mnubo.dbschemas.Table - Table odainterpolationparams does not contain a column objectmodel (type = text)
+    18:10:04.989 [main] ERROR com.mnubo.dbschemas.Table - Table odainterpolationparams does not contain a column hdfs_import_period_sec (type = double)
+    Exception in thread "main" java.lang.Exception: Oops, it seems the target schema of orb3a1 is not what it should be... Please call your dearest developer for helping de-corrupting the database.
+            at com.mnubo.dbschemas.DatabaseMigrator$.upgrade(DatabaseMigrator.scala:91)
+            at com.mnubo.dbschemas.DatabaseMigrator$.migrate(DatabaseMigrator.scala:69)
+            ...
+
+In this particular example, to repair the database, you need to create the `objectmodel` and `hdfs_import_period_sec` columns in the  `odainterpolationparams` table. You should then be able to restart the upgrade.
+
 Inspecting the migrations inside a schema manager
 -------------------------------------------------
 
