@@ -303,19 +303,25 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, conf
       .toSet[(String, JsValue)]
       .flatMap { case (name, v) =>
         val property = v.asJsObject
-        val typ = property.fields("type").toString()
+        val typ = property
+          .fields("type")
+          .asInstanceOf[JsString]
+          .value
 
+        log.info(s"Found a $name property of type $typ.")
         if (typ == "nested")
           parseMappingProperties(property, prefix + name + ".")
-        else
+        else {
+          log.info(s"Creating a $prefix$name property of type $typ.")
           Set(
             Column(
               prefix + name,
               property
                 .fields
                 .filter(_._2.isInstanceOf[JsString])
-                .mapValues(_.toString())
+                .mapValues(_.asInstanceOf[JsString].value)
             )
           )
+        }
       }
 }

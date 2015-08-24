@@ -224,10 +224,22 @@ TaskKey[Unit]("check-mgr") := {
       .preparePutMapping(indexName)
       .setType("kv")
       .setSource(
-        "_id",         "path=k",
-        "k",           "type=string,index=not_analyzed",
-        "v",           "type=string,index=not_analyzed"
-      )
+        """
+          |{
+          |  "kv": {
+          |    "properties": {
+          |      "k": {"type": "string", "index": "not_analyzed"},
+          |      "v": {"type": "string", "index": "not_analyzed"},
+          |      "meta": {
+          |        "type": "nested",
+          |        "properties": {
+          |          "category": {"type": "string", "index": "not_analyzed"}
+          |        }
+          |      }
+          |    }
+          |  }
+          |}
+        """.stripMargin)
       .get
 
     // Finally, make sure we can re-apply latest migration
