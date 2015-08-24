@@ -14,7 +14,9 @@ import org.elasticsearch.common.settings.ImmutableSettings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
 import org.elasticsearch.index.query.QueryBuilders
 import org.joda.time.{DateTime, DateTimeZone}
+import spray.json._
 
+import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.util.Try
 
@@ -226,6 +228,25 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, conf
     }
   }
 
+  // Ex of mapping for an index with one type "event":
+  // {
+  //     "event": {
+  //         "properties": {
+  //             "_all": {"enabled": "false" },
+  //             "x_event_type": {"type": "string", "index": "not_analyzed"},
+  //             "x_pipeline": {"type": "string", "index": "not_analyzed"},
+  //             "x_timestamp": {"type": "date", "format": "date_time"},
+  //             "x_object": {
+  //                 "type": "nested",
+  //                 "properties": {
+  //                     "object_id": {"type": "string", "index": "not_analyzed"},
+  //                     "x_registration_latlon": {"type": "geo_point"}
+  //                 }
+  //             }
+  //         }
+  //     }
+  // }
+
   private def schema(client: TransportClient, index: String): Schema[Map[String, String]] = {
     val response = client
       .admin
@@ -241,20 +262,60 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, conf
         .asScala
         .map { cursor =>
           val (typeName, typeMappings) = (cursor.key, cursor.value)
-          Table[Map[String, String]](
+          Table(
             typeName,
-            typeMappings
-              .getSourceAsMap
-              .get("properties")
-              .asInstanceOf[JMap[String, JMap[String, String]]]
-              .asScala
-              .mapValues(_.asScala)
-              .map { case (fieldName, fieldMapping) =>
-                Column(fieldName, Map(fieldMapping.toSeq: _*))
-              }
-              .toSet
+            parseMappingProperties(
+              typeMappings
+                .source().string()
+                .parseJson
+                .asJsObject
+                .fields(typeName)
+                .asJsObject
+            )
           )
         }
     )
   }
+
+  // This will return all metadata associated with each property. Nested properties will be parsed as well, and their name will be their dotted path (ex: x_object.x_owner.username).
+  // Non string metadata is ignored for simplicity.
+  // Ex of JSON mapping that should be passed:
+  // {
+  //     "properties": {
+  //         "_all": {"enabled": "false" },
+  //         "x_event_type": {"type": "string", "index": "not_analyzed"},
+  //         "x_pipeline": {"type": "string", "index": "not_analyzed"},
+  //         "x_timestamp": {"type": "date", "format": "date_time"},
+  //         "x_object": {
+  //             "type": "nested",
+  //             "properties": {
+  //                 "object_id": {"type": "string", "index": "not_analyzed"},
+  //                 "x_registration_latlon": {"type": "geo_point"}
+  //             }
+  //         }
+  //     }
+  // }
+  private def parseMappingProperties(mapping: JsObject, prefix: String = ""): Set[Column[Map[String, String]]] =
+    mapping
+      .fields("properties")
+      .asJsObject
+      .fields
+      .toSet[(String, JsValue)]
+      .flatMap { case (name, v) =>
+        val property = v.asJsObject
+        val typ = property.fields("type").toString()
+
+        if (typ == "nested")
+          parseMappingProperties(property, prefix + name + ".")
+        else
+          Set(
+            Column(
+              prefix + name,
+              property
+                .fields
+                .filter(_._2.isInstanceOf[JsString])
+                .mapValues(_.toString())
+            )
+          )
+      }
 }
