@@ -10,10 +10,22 @@ class ScalaUp0001 {
       .preparePutMapping(indexName)
       .setType("kv")
       .setSource(
-        "_id",         "path=k",
-        "k",           "type=string,index=not_analyzed",
-        "v",           "type=string,index=not_analyzed"
-      )
+        """
+          |{
+          |  "kv": {
+          |    "properties": {
+          |      "k": {"type": "string", "index": "not_analyzed"},
+          |      "v": {"type": "string", "index": "not_analyzed"},
+          |      "meta": {
+          |        "type": "nested",
+          |        "properties": {
+          |          "category": {"type": "string", "index": "not_analyzed"}
+          |        }
+          |      }
+          |    }
+          |  }
+          |}
+        """.stripMargin)
       .get
       .isAcknowledged)
       throw new Exception(s"Cannot add mappings for kv type in $indexName index.")

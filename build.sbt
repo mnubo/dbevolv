@@ -18,6 +18,7 @@ lazy val tool = (project in file("tool"))
       "org.elasticsearch"       %  "elasticsearch"          % "1.5.2" % "provided",
       "mysql"                   %  "mysql-connector-java"   % "5.1.35" % "provided",
       "joda-time"               %  "joda-time"              % "2.7",
+      "io.spray"                %% "spray-json"             % "1.3.1",
       "com.github.scopt"        %% "scopt"                  % "3.3.0"
     )
   )
