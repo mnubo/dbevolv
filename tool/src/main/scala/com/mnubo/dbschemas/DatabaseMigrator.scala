@@ -48,11 +48,11 @@ object DatabaseMigrator extends Logging {
 
     val downwardCtx =
       if (currentIndex >= 0) {
-        log.info(s"Current version is ${availableMigrations(currentIndex)}.")
+        log.info(s"Current version is ${availableMigrations(currentIndex)}. Will upgrade to $target.")
         ctx
       }
       else {
-        log.info(s"This is a brand new database, with no version yet installed.")
+        log.info(s"This is a brand new database, with no version yet installed. Will upgrade to $target.")
         ctx.copy(skipSchemaVerification = true) // Don't need to validate an empty schema if the database is new
       }
 
