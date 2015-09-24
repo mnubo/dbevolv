@@ -3,10 +3,9 @@ package dbschemas
 
 import java.io.File
 
+import com.mnubo.app_util.MnuboEnvironments._
 import com.mnubo.app_util.{Logging, MnuboConfiguration}
-import com.mnubo.dbschemas.DbMigrationConfig._
-import com.mnubo.dbschemas.docker.Docker
-import com.typesafe.config.{Config, ConfigFactory}
+import com.typesafe.config.ConfigFactory
 
 object DbSchemas extends App with Logging {
   private val config =
@@ -25,7 +24,7 @@ object DbSchemas extends App with Logging {
   private val env =
     System.getenv("ENV")
   private val isSensitiveEnvironment =
-    Set(MnuboConfiguration.Dev, MnuboConfiguration.Qa, MnuboConfiguration.Preprod, MnuboConfiguration.Sandbox, MnuboConfiguration.Prod).contains(env)
+    Set(Dev, Qa, Preprod, Sandbox, Prod, QaSandbox, PreprodSandbox).contains(env)
   private val hasInstanceForEachNamespace =
     config.getBoolean("hasInstanceForEachNamespace")
   private val schemaName =
