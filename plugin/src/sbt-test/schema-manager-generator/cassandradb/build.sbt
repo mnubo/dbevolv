@@ -13,8 +13,20 @@ import scala.annotation.tailrec
 import sys.process.{Process => SProcess, ProcessLogger => SProcessLogger}
 import collection.JavaConverters._
 
+import sbtdocker.staging.DefaultDockerfileProcessor
+import sbtdocker.{DockerKeys, DockerBuild}
+
 TaskKey[Unit]("check-mgr") := {
   val logger = streams.value.log
+  val dockerCmd = (DockerKeys.dockerCmd in docker).value
+  val buildOptions = (DockerKeys.buildOptions in docker).value
+  val stageDir = (target in docker).value
+  val dockerfile = (DockerKeys.dockerfile in docker).value
+  val imageNames = (DockerKeys.imageNames in docker).value
+  val pwd = new File(".").getCanonicalPath
+
+  def rebuild(): Unit =
+    DockerBuild(dockerfile, DefaultDockerfileProcessor, imageNames, buildOptions, stageDir, dockerCmd, logger)
 
   def runShellAndListen(cmd: String) = {
     val out = new StringBuilder
@@ -155,7 +167,6 @@ TaskKey[Unit]("check-mgr") := {
       "Metadata is not updated correctly after a downgrade"
     )
 
-
     // Fiddle with checksum and make sure the schema manager refuses to proceed
     execute("UPDATE cassandradb.cassandradb_version SET checksum='abc' WHERE migration_version = '0001'")
     assert(
@@ -178,10 +189,63 @@ TaskKey[Unit]("check-mgr") := {
       "The schema manager should have run successfully"
     )
 
+    try {
+      // Add a bunch of new migrations (including a rebase) into the mix
+      assert(
+        runShell(s"cp -R $pwd/stage2_migrations/0003 migrations/") == 0,
+        "Could not copy additional migrations 0003"
+      )
+      assert(
+        runShell(s"cp -R $pwd/stage2_migrations/0004 migrations/") == 0,
+        "Could not copy additional migrations 0004"
+      )
+      assert(
+        runShell(s"cp -R $pwd/stage2_migrations/0005 migrations/") == 0,
+        "Could not copy additional migrations 0005"
+      )
+      rebuild()
+
+      // Make sure we can pass through a rebase
+      assert(
+        runShell(mgrCmd) == 0,
+        "The schema manager should have applied the rebase and version 0005"
+      )
+      val meta = query("SELECT migration_version FROM cassandradb.cassandradb_version")(_.getString("migration_version")).toSet
+      assert(
+        meta == Set("0004", "0005"),
+        s"Metadata is not updated correctly after an upgrade through a rebase: $meta"
+      )
+
+      // Make sure nothing happen when already at the last version
+      assert(
+        runShell(mgrCmd) == 0,
+        "The schema manager should have done nothing successfully"
+      )
+
+      // Make sure we can rollback up to a rebase
+      assert(
+        runShell(s"$mgrCmd --version 0001") == 0,
+        "The schema manager should have rollbacked to 0004"
+      )
+      assert(
+        query("SELECT migration_version FROM cassandradb.cassandradb_version")(_.getString("migration_version")) == Seq("0004"),
+        "Metadata is not updated correctly after a rollback up to a rebase"
+      )
+    }
+    finally {
+      assert(
+        runShell(s"rm -rf $pwd/migrations/0003 $pwd/migrations/0004 $pwd/migrations/0005") == 0,
+        "Cannot delete additional test migrations"
+      )
+    }
+
   }
 
   s"docker rmi -f dockerep-0.mtl.mnubo.com/cassandradb-mgr:1.0.0-SNAPSHOT".!
   s"docker rmi -f dockerep-0.mtl.mnubo.com/cassandradb-mgr:latest".!
+  s"docker rmi -f dockerep-0.mtl.mnubo.com/test-cassandradb:0005".!
+  s"docker rmi -f dockerep-0.mtl.mnubo.com/test-cassandradb:0004".!
+  s"docker rmi -f dockerep-0.mtl.mnubo.com/test-cassandradb:0003".!
   s"docker rmi -f dockerep-0.mtl.mnubo.com/test-cassandradb:0002".!
   s"docker rmi -f dockerep-0.mtl.mnubo.com/test-cassandradb:0001".!
   s"docker rmi -f dockerep-0.mtl.mnubo.com/test-cassandradb:latest".!

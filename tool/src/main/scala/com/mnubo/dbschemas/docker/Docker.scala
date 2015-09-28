@@ -5,6 +5,7 @@ import java.net.ServerSocket
 
 import com.mnubo.app_util.Logging
 import com.mnubo.dbschemas.DatabaseDockerImage
+import com.mnubo.test_utils.docker.Container
 
 import scala.annotation.tailrec
 import scala.sys.process._
@@ -19,6 +20,9 @@ object Docker extends Logging {
     else
       "localhost"
 
+  val userHome = System.getProperty("user.home")
+  val dockerExecutableLocation = "which docker".!!.trim
+
   private def getAvailablePort =
     using(new ServerSocket(0))(_.getLocalPort)
 
@@ -29,7 +33,7 @@ object Docker extends Logging {
 
     val options = additionalOptions.map(_ + " ").getOrElse("")
 
-    val container = execAndRead(s"docker run -dt -p $hostPort:$exposedPort $options$name")
+    val container = execAndRead(s"docker run -dt -v $userHome/.docker/config.json:/root/.docker/config.json:ro -v $userHome/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $dockerExecutableLocation:/bin/docker -p $hostPort:$exposedPort $options$name")
 
     val info = ContainerInfo(container, hostPort)
 

@@ -26,7 +26,7 @@ trait DatabaseConnection extends Closeable {
   /** Get the concrete connection this DatabaseConnection is wrapping. Ex: the com.datastax.driver.core.Session. **/
   def innerConnection: AnyRef
   def getInstalledMigrationVersions: Set[InstalledVersion]
-  def markMigrationAsInstalled(migrationVersion: String, checksum: String)
+  def markMigrationAsInstalled(migrationVersion: String, checksum: String, isRebase: Boolean)
   def markMigrationAsUninstalled(migrationVersion: String)
   def isSchemaValid: Boolean
 }

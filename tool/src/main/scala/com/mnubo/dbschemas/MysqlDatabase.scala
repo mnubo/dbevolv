@@ -94,8 +94,12 @@ class MysqlConnection(schemaName: String,
     readResultset()
   }
 
-  override def markMigrationAsInstalled(migrationVersion: String, checksum: String) =
+  override def markMigrationAsInstalled(migrationVersion: String, checksum: String, isRebase: Boolean) = {
+    if (isRebase)
+      execute(s"TRUNCATE ${schemaName}_version")
+
     execute(s"INSERT INTO ${schemaName}_version (migration_version, migration_date, checksum) VALUES ('$migrationVersion', '${df.format(new Date())}', '$checksum')")
+  }
 
   override def markMigrationAsUninstalled(migrationVersion: String) =
     execute(s"DELETE FROM ${schemaName}_version WHERE migration_version = '$migrationVersion'")
