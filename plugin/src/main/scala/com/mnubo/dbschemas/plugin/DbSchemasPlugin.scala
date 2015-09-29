@@ -33,6 +33,7 @@ object DbSchemasPlugin extends AutoPlugin {
     "mysql" -> Seq("mysql" % "mysql-connector-java" % "5.1.35")
   )
 
+
   override def requires = DockerPlugin && AssemblyPlugin
 
   object autoImport {

@@ -12,7 +12,7 @@ import org.elasticsearch.action.admin.cluster.health.ClusterHealthStatus
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.ImmutableSettings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
-import org.elasticsearch.index.query.QueryBuilders
+import org.elasticsearch.index.query.{QueryBuilder, QueryBuilders}
 import org.joda.time.{DateTime, DateTimeZone}
 import spray.json._
 
@@ -122,7 +122,14 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, conf
       .toSet
   }
 
-  override def markMigrationAsInstalled(migrationVersion: String, checksum: String) = {
+  override def markMigrationAsInstalled(migrationVersion: String, checksum: String, isRebase: Boolean) = {
+    if (isRebase)
+      client
+        .prepareDeleteByQuery(indexName)
+        .setTypes(versionTypeName)
+        .setQuery(QueryBuilders.matchAllQuery())
+        .get
+
     if (!client
       .prepareIndex(indexName, versionTypeName, migrationVersion)
       .setSource(

@@ -7,12 +7,14 @@
 - [Usage](#usage)
   - [Writing database migrations](#writing-database-migrations)
   - [Building more complex upgrade / downgrade scripts](#building-more-complex-upgrade--downgrade-scripts)
+  - [Rebasing a database](#rebasing-a-database)
   - [Migration design guidelines](#migration-design-guidelines)
   - [Computing the database name / schema name / index name / keyspace (depending on underlying db kind)](#computing-the-database-name--schema-name--index-name--keyspace-depending-on-underlying-db-kind)
   - [Testing your newly added script locally before committing](#testing-your-newly-added-script-locally-before-committing)
   - [Project examples](#project-examples)
   - [Upgrading / downgrading a database](#upgrading--downgrading-a-database)
     - [Behaviour](#behaviour)
+    - [Common errors](#common-errors)
   - [Inspecting the migrations inside a schema manager](#inspecting-the-migrations-inside-a-schema-manager)
   - [Getting the list of already installed migrations in a database](#getting-the-list-of-already-installed-migrations-in-a-database)
   - [Using a test instance in automated tests](#using-a-test-instance-in-automated-tests)
@@ -43,6 +45,7 @@ Create a git repo with the following structure:
     /db.conf
     /build.sbt
     /version.sbt
+    /.gitignore
     /project/plugins.sbt
             /build.properties
     /migrations/0010/
@@ -175,6 +178,41 @@ You migrations MUST be (and will be tested for):
 * **Immutable in production**. Once a migration has been applied to production, you cannot modify the migration anymore. If you do, the schema manager will refuse to execute any further migrations.
 * **Forward compatible for the application in production**. Obviously, it must not break the current version of the application. In other words, your migration must support both the new and the old version of your application.
 
+Rebasing a database
+-------------------
+
+Sometimes, especially when a database came through a lot of migrations, you are in a situation where lots of databases and columns are created in earlier migrations to be removed in later migrations, making the database quite long to create. This is especially problematic in multi-tenant databases that gets created for a new tenant. It can also happen that there is too many migrations, and that makes the build pretty long.
+
+A solution to that problem is to 'rebase' the migrations. It means taking the result of all of those migrations, and make a single script having the same end result as them. DBSchemas helps you do that in a safe way.
+
+Begin by creating a new migration directory, with a new version number. Put a single script `rebase.*ql` in it. Do not create a `rollback.*ql` file, rolling back a rebase migration is not supported. Ex:
+
+    /migrations/2000/rebase.cql
+    
+DBSchemas does not support the automatic filling of that script right now. So you will have to use the existing database tools to forge it for you from the latest test image (see below).
+
+As always, you can test locally that your rebase script is sound by running:
+
+    sbt buildTestContainer
+
+Rebase migrations are treated a bit differently than the others. Lets take an example where we do have the following migrations: 
+
+    0010
+    0020
+    0030
+    0100 (rebase)
+    0110
+    0200 (rebase)
+    0210
+
+* first, DBSchemas will make sure that the database resulting from a rebase script is the same as the one resulting from all the previous migrations.
+* your rebase migrations do not need to be idempotent.
+* when applied on an existing database (version  <= `0030` in our example), the rebase scripts will not be applied, but all metadata about previous migrations up to the rebase will be erased. This is done for each rebase encountered along the way. For example, if the database had these migrations installed before: `[0010, 0020]`, then after running the schema manager it would have `[0200, 0210]`.
+* when applied on a new database, DBSchemas will start at the latest rebase, and only apply further migrations. In our example, it would apply only `0200` and `0210` because `200` is the latest migration of type `rebase`.
+* **WARNING!**: once rebased, you cannot go back to previous migrations anymore. Which means that rolling back a database will only bring you to the previous rebase, even if you asked to rollback to a previous migration. For example, if a database is at version `0210` in our example, rolling back to `0030` will actually only bring the database to `0200`.
+
+**Cleanup**: after a given `rebase` migration has been applied to all environments, you can safely delete the previous migration directories from the build.
+
 Computing the database name / schema name / index name / keyspace (depending on underlying db kind)
 ---------------------------------------------------------------------------------------------------
 
@@ -243,7 +281,7 @@ This should result to something like:
       the volume mounts are only necessary when upgrading a schema. You can omit them when downgrading, getting help, or display the history.
 
     Example:
-      docker run -it --rm -v $HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $(which docker):/bin/docker -e ENV=dev dockerep-0.mtl.mnubo.com/enrichment:latest --version 0004
+      docker run -it --rm -v $HOME/.docker/config.json:/root/.docker/config.json:ro -v $HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $(which docker):/bin/docker -e ENV=dev dockerep-0.mtl.mnubo.com/enrichment:latest --version 0004
       
 Note: the help message is slightly different for the databases that don't have one instance by namespace (global databases).
 
@@ -323,8 +361,12 @@ Development
 
 The schema manager builder is actually a SBT plugin. To test the sbt plugin, we are using the scripted sbt plugin (yes, a pluging to test a plugin...). To launch the (quite long) tests, do:
 
-    sbt publishLocal scripted
+    sbt tool/publishLocal scripted
 
 And go fetch a cup of coffee, you'll have time.
+
+If you want to runs tests only on one kind of database, specify the test build directory you want to fire (relative to src/sbt-test:
+
+    sbt tool/publishLocal "scripted schema-manager-generator/cassandradb"
 
 Documentation for the scripted plugin is not the best. You can find a tutorial here: [Testing SBT plugins](http://eed3si9n.com/testing-sbt-plugins)

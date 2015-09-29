@@ -25,13 +25,13 @@ object StatementFiles extends Logging {
           StringStatement(line)
       }
 
-  def findStatementFile(version: String, stmtType: String) =
+  def findStatementFile(version: String, stmtType: Set[String]) =
     new File(s"migrations/$version")
       .listFiles(new FileFilter {
       override def accept(pathname: File) =
         pathname.isFile && !pathname.isHidden
     })
-      .find(_.getName.startsWith(stmtType))
+      .find(f => stmtType.exists(f.getName.startsWith))
       .get
 
 }

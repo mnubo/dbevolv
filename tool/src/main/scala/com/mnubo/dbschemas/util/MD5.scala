@@ -15,8 +15,8 @@ object MD5 extends Logging {
       .map("%02x".format(_))
       .mkString
 
-  def forStatementFile(version: String, stmtType: String) = {
-    val stmtFile = StatementFiles.findStatementFile(version, stmtType)
+  def forStatementFile(version: String, stmtTypes: Set[String]) = {
+    val stmtFile = StatementFiles.findStatementFile(version, stmtTypes)
 
     forStatements(
       stmtFile,
