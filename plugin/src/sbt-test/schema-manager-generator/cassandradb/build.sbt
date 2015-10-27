@@ -46,10 +46,10 @@ TaskKey[Unit]("check-mgr") := {
   case class Cassandra() {
     val port = using(new ServerSocket(0))(_.getLocalPort)
 
-    runShell("docker pull spotify/cassandra")
+    runShell("docker pull dockerep-0.mtl.mnubo.com/test-cassandra:2.1.11")
 
     val cassandraContainerId =
-      runShellAndListen(s"docker run -d -p $port:9042 spotify/cassandra")
+      runShellAndListen(s"docker run -d -p $port:9042 dockerep-0.mtl.mnubo.com/test-cassandra:2.1.11")
 
     private def isStarted =
       runShellAndListen(s"docker logs $cassandraContainerId")
@@ -71,16 +71,20 @@ TaskKey[Unit]("check-mgr") := {
       .build()
     val session = cluster.connect()
 
-    def query[T](sql: String)(readFunction: Row => T): Seq[T] =
+    def query[T](sql: String)(readFunction: Row => T): Seq[T] = {
+      logger.info(s"Executing $sql")
       session
         .execute(sql)
         .all
         .asScala
         .map(readFunction)
+    }
 
-    def execute(sql: String) =
+    def execute(sql: String) = {
+      logger.info(s"Executing $sql")
       session
         .execute(sql)
+    }
 
     def close(): Unit = {
       session.close()
@@ -184,6 +188,7 @@ TaskKey[Unit]("check-mgr") := {
     execute("ALTER TABLE cassandradb.kv RENAME k2 TO k")
 
     // Finally, make sure we can re-apply latest migration
+    // Actual migrations on our test db start here.
     assert(
       runShell(mgrCmd) == 0,
       "The schema manager should have run successfully"
