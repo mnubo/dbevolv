@@ -5,6 +5,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 import com.datastax.driver.core.{ConsistencyLevel, SimpleStatement, Session, Cluster}
+import com.mnubo.app_util.Logging
 import com.mnubo.test_utils.cassandra.DockerCassandra
 import com.typesafe.config.Config
 import org.joda.time.{DateTimeZone, DateTime}
@@ -45,7 +46,7 @@ class CassandraConnection(
                            port: Int,
                            createDatabaseStatement: String,
                            maxSchemaAgreementWaitSeconds: Int,
-                           forcePullVerificationDb: Boolean) extends DatabaseConnection {
+                           forcePullVerificationDb: Boolean) extends DatabaseConnection with Logging {
   private val cluster = Cluster
     .builder()
     .addContactPoints(hosts.split(","): _*)
@@ -126,7 +127,8 @@ class CassandraConnection(
       true
     }
     catch {
-      case NonFatal(_) =>
+      case NonFatal(ex) =>
+        log.warn(s"Could not determine version of $schemaName'", ex)
         false
     }
 
@@ -136,7 +138,8 @@ class CassandraConnection(
       true
     }
     catch {
-      case NonFatal(_) =>
+      case NonFatal(ex) =>
+        log.warn(s"Could not use keyspace $keyspace'", ex)
         false
     }
 

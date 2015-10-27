@@ -51,9 +51,11 @@ object TestDatabaseBuilder extends Logging {
             migrate(schemaVersion.version, twice = false, container = fromRebaseContainer)
 
             // Verify schemas are compatible
-            withConnection(fromRebaseContainer) { connection =>
-              if (connection.isSchemaValid)
-                throw new Exception(s"Rebase script for version ${schemaVersion.version} is not compatible with previous version schema")
+            withConnection(fromRebaseContainer) {
+              connection =>
+                connection.setActiveSchema(schemaName)
+                if (!connection.isSchemaValid)
+                  throw new Exception(s"Rebase script for version ${schemaVersion.version} is not compatible with previous version schema")
             }
           }
           finally {
