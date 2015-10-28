@@ -65,8 +65,8 @@ object TestDatabaseBuilder extends Logging {
         }
 
         if (doPush) {
-          log.info(s"Publishing $dbKind $schemaName test instance to $repositoryName:$schemaVersion ...")
-          Docker.push(s"$repositoryName:$schemaVersion")
+          log.info(s"Publishing $dbKind $schemaName test instance to $repositoryName:${schemaVersion.version} ...")
+          Docker.push(s"$repositoryName:${schemaVersion.version}")
         }
 
         imageId
