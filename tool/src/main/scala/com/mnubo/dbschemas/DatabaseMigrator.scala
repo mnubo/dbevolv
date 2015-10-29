@@ -84,57 +84,23 @@ object DatabaseMigrator extends Logging {
 
     validateInstalledMigrationsChecksums(installedMigrations)
 
-    val targetVersion =
-      ctx.targetVersion.getOrElse(availableMigrations.last.version)
+    val migrationSpec = getMigrationToApply(ctx.targetVersion, availableMigrations, installedMigrations)
 
-    val lastInstalledMigrationIndex =
-      availableMigrations.size -
-      availableMigrations.map(_.version).reverse.takeWhile(!installedVersions.contains(_)).size -
-      1
-
-    val downwardCtx =
-      if (lastInstalledMigrationIndex >= 0) {
-        log.info(s"Current version is ${availableMigrations(lastInstalledMigrationIndex)}. Will upgrade to $targetVersion.")
-        ctx
-      }
-      else {
-        log.info(s"This is a brand new database, with no version yet installed. Will upgrade to $targetVersion.")
-        ctx.copy(skipSchemaVerification = true) // Don't need to validate an empty schema if the database is new
-      }
-
-    val targetIndex =
-      availableMigrations
-        .zipWithIndex
-        .find { case (v, i) => targetVersion == v.version }
-        .get
-        ._2
-
-    if (lastInstalledMigrationIndex > targetIndex) {
-      val stepsToExecute = availableMigrations
-        .slice(targetIndex + 1, lastInstalledMigrationIndex + 1)
-        .reverse
-        .takeWhile(!_.isRebase) // Stop at last rebase. It is not supported to rollback through a rebase.
-
-      downgrade(downwardCtx, stepsToExecute)
+    val downwardCtx = if(migrationSpec.skipSchemaVerification){
+      ctx.copy(skipSchemaVerification = true) // Don't need to validate an empty schema if the database is new
+    } else {
+      ctx
     }
-    else if (lastInstalledMigrationIndex < targetIndex) {
-      val startingIndex =
-        if (lastInstalledMigrationIndex == -1)
-          availableMigrations  // New database, find the last rebase as starting point
-            .zipWithIndex
-            .foldLeft(-1)((acc, mig) => if (mig._1.isRebase) mig._2 else acc)
-        else
-          lastInstalledMigrationIndex + 1 // Existing database, execute everything from current index
 
-      val stepsToExecute = availableMigrations
-        .slice(startingIndex, targetIndex + 1)
-
-      upgrade(downwardCtx, stepsToExecute, installedMigrations)
+    migrationSpec.op match {
+      case UpgradeOperation =>
+        upgrade(downwardCtx, migrationSpec.steps, installedMigrations)
+      case DowngradeOperation =>
+        downgrade(downwardCtx, migrationSpec.steps)
+      case NoopOperation => ()
     }
-    else
-      () // lastInstalledMigrationIndex == targetIndex: nothing to do, already at the right target version
 
-    MigrationReport(if (lastInstalledMigrationIndex < 0) availableMigrations.head.version else availableMigrations(lastInstalledMigrationIndex).version, targetVersion)
+    MigrationReport(migrationSpec.startingVersion, migrationSpec.migratedToVersion)
   }
 
   private def validateInstalledMigrationsChecksums(installedMigrations: Set[InstalledVersion]) = {
@@ -198,7 +164,68 @@ object DatabaseMigrator extends Logging {
       })
       .map(f => Migration(f.getName, f.list().exists(_.startsWith("rebase."))))
       .sortBy(_.version)
+
+  def getMigrationToApply(maybeTargetVersion:Option[String], availableMigrations:Seq[Migration], installedMigrations:Set[InstalledVersion]) : MigrationSpec = {
+    val installedVersions = installedMigrations.map(_.version).toSeq.sorted
+
+    val targetVersion = maybeTargetVersion.getOrElse(availableMigrations.last.version)
+
+    val lastInstalledMigrationIndex =
+      availableMigrations.size -
+        availableMigrations.map(_.version).reverse.takeWhile(!installedVersions.contains(_)).size -
+        1
+
+    val skipSchemaVerification =
+      if (lastInstalledMigrationIndex >= 0) {
+        log.info(s"Current version is ${availableMigrations(lastInstalledMigrationIndex)}. Will upgrade to $targetVersion.")
+        false
+      }
+      else {
+        log.info(s"This is a brand new database, with no version yet installed. Will upgrade to $targetVersion.")
+        true // Don't need to validate an empty schema if the database is new
+      }
+
+    val targetIndex =
+      availableMigrations
+        .zipWithIndex
+        .find { case (v, i) => targetVersion == v.version }
+        .get
+        ._2
+
+    val startingVersion = if (lastInstalledMigrationIndex < 0) availableMigrations.head.version else availableMigrations(lastInstalledMigrationIndex).version
+    val (operation, steps) = if(lastInstalledMigrationIndex > targetIndex) {
+      val stepsToExecute = availableMigrations
+        .slice(targetIndex + 1, lastInstalledMigrationIndex + 1)
+        .reverse
+        .takeWhile(!_.isRebase) // Stop at last rebase. It is not supported to rollback through a rebase.
+
+      (DowngradeOperation, stepsToExecute)
+    } else if (lastInstalledMigrationIndex < targetIndex) {
+      val startingIndex =
+        if (lastInstalledMigrationIndex == -1)
+          availableMigrations.zipWithIndex.filter{case (mig, idx) => mig.isRebase && idx < targetIndex}.map(_._2).lastOption.getOrElse(0)
+        else
+          lastInstalledMigrationIndex + 1 // Existing database, execute everything from current index
+
+      val stepsToExecute = availableMigrations
+        .slice(startingIndex, targetIndex + 1)
+
+      (UpgradeOperation, stepsToExecute)
+    } else {
+      (NoopOperation, Seq.empty)
+    }
+    log.debug(s"$availableMigrations")
+    log.debug(s"Last index $lastInstalledMigrationIndex, Target $targetIndex")
+    MigrationSpec(startingVersion, targetVersion, skipSchemaVerification, steps, operation)
+  }
 }
+
+sealed trait MigrationOperation
+object UpgradeOperation extends MigrationOperation
+object DowngradeOperation extends MigrationOperation
+object NoopOperation extends MigrationOperation
+
+case class MigrationSpec(startingVersion: String, migratedToVersion: String, skipSchemaVerification:Boolean, steps: Seq[Migration], op:MigrationOperation)
 
 case class MigrationReport(startingVersion: String, migratedToVersion: String)
 
