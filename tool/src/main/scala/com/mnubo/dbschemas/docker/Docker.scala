@@ -5,7 +5,6 @@ import java.net.ServerSocket
 
 import com.mnubo.app_util.Logging
 import com.mnubo.dbschemas.DatabaseDockerImage
-import com.mnubo.test_utils.docker.Container
 
 import scala.annotation.tailrec
 import scala.sys.process._
@@ -13,6 +12,7 @@ import scala.sys.process._
 object Docker extends Logging {
   private val HostParseRegex = """\d+\.[0-9\.]+""".r
   private val hostVar = System.getenv("DOCKER_HOST")
+  private val FiveMinMaxWaitTimeForStartInMS = 5 * 60 * 1000L
 
   val dockerHost =
     if (hostVar != null)
@@ -94,12 +94,17 @@ object Docker extends Logging {
   }
 
   @tailrec
-  private def waitStarted(container: ContainerInfo, isStarted: (String, ContainerInfo) => Boolean): Unit =
-    if (!isStarted(execAndRead(s"docker logs ${container.id}"), container)) {
+  private def waitStarted(container: ContainerInfo, isStarted: (String, ContainerInfo) => Boolean, startTS:Long = System.currentTimeMillis()): Unit = {
+    val logs = execAndRead(s"docker logs ${container.id}")
+    if (!isStarted(logs, container) )
+    {
       Thread.sleep(100)
-      waitStarted(container, isStarted)
+      if (System.currentTimeMillis() - startTS > FiveMinMaxWaitTimeForStartInMS) {
+        throw new Exception(s"Could not start $container within a reasonable time. Container logs were:\n$logs\n")
+      }
+      waitStarted(container, isStarted, startTS)
     }
-
+  }
 }
 
 case class ContainerInfo(id: String, realPort: Int)
