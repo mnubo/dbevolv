@@ -29,6 +29,7 @@ trait DatabaseConnection extends Closeable {
   def markMigrationAsInstalled(migrationVersion: String, checksum: String, isRebase: Boolean)
   def markMigrationAsUninstalled(migrationVersion: String)
   def isSchemaValid: Boolean
+  def isSameSchema(connection:DatabaseConnection):Boolean
 }
 
 case class DatabaseDockerImage(name: String,

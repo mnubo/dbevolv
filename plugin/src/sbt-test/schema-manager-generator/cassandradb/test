@@ -4,5 +4,22 @@
 
 > clean
 > docker
+
+# happy path
 > buildTestContainer
 > check-mgr
+
+## expect the buildTestContainer to fail since the upgrade is bad
+$ exec cp -R stage3_migrations/0006 migrations/
+-> buildTestContainer
+$ exec rm -rf migrations/0006
+
+# expect the buildTestContainer to fail since the downgrade is bad
+$ exec cp -R stage4_migrations/0007 migrations/
+-> buildTestContainer
+$ exec rm -rf migrations/0007
+
+# expect the buildTestContainer to fail since the rebase is not equivalent to the previous version
+$ exec cp -R stage5_migrations/0008 migrations/
+-> buildTestContainer
+$ exec rm -rf migrations/0008
