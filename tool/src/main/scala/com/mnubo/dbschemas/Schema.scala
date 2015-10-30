@@ -17,6 +17,10 @@ case class Schema[COLTYPE](tables: Map[String, Table[COLTYPE]]) extends Logging 
         table.isCompatibleWith(other.tables(name))
     }
   }
+
+  def isSameAs(other: Schema[COLTYPE]) = {
+    isCompatibleWith(other) && other.isCompatibleWith(this)
+  }
 }
 
 object Schema {

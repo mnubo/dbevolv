@@ -147,6 +147,18 @@ class MysqlConnection(schemaName: String,
     }
   }
 
+  override def isSameSchema(other:DatabaseConnection) : Boolean = {
+    other match {
+      case otherConn:MysqlConnection =>
+        val mySchema = schema()
+        val otherSchema = otherConn.schema()
+        mySchema.isSameAs(otherSchema)
+      case _ => false
+    }
+  }
+
+  private def schema(): Schema[Int] = schema(connection, database)
+
   private def schema(connection: Connection, db: String): Schema[Int] = {
     val meta = connection.getMetaData
 

@@ -4,6 +4,7 @@ package dbschemas
 import java.text.SimpleDateFormat
 import java.util.Date
 
+import com.datastax.driver.core.exceptions.InvalidQueryException
 import com.datastax.driver.core.{ConsistencyLevel, SimpleStatement, Session, Cluster}
 import com.mnubo.app_util.Logging
 import com.mnubo.test_utils.cassandra.DockerCassandra
@@ -127,8 +128,7 @@ class CassandraConnection(
       true
     }
     catch {
-      case NonFatal(ex) =>
-        log.warn(s"Could not determine version of $schemaName'", ex)
+      case NonFatal(ex:InvalidQueryException) =>
         false
     }
 
@@ -138,8 +138,7 @@ class CassandraConnection(
       true
     }
     catch {
-      case NonFatal(ex) =>
-        log.warn(s"Could not use keyspace $keyspace'", ex)
+      case NonFatal(ex:InvalidQueryException) =>
         false
     }
 
@@ -159,7 +158,22 @@ class CassandraConnection(
     }
   }
 
-  private def schema(session: Session, ks: String) =
+  override def isSameSchema(other:DatabaseConnection) : Boolean = {
+    other match {
+      case otherConn:CassandraConnection =>
+        val mySchema = schema()
+        val otherSchema = otherConn.schema()
+        log.debug(s"Comparing ${innerConnection.asInstanceOf[Session].getCluster.getClusterName} with ${other.innerConnection.asInstanceOf[Session].getCluster.getClusterName} :")
+        log.debug(s"- $mySchema")
+        log.debug(s"- $otherSchema")
+        mySchema.isSameAs(otherSchema)
+      case _ => false
+    }
+  }
+
+  private def schema() : Schema[String]  = schema(session, keyspace)
+
+  private def schema(session: Session, ks: String) : Schema[String] =
     Schema(
       session
         .getCluster

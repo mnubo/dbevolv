@@ -235,6 +235,16 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, conf
     }
   }
 
+  override def isSameSchema(other:DatabaseConnection) : Boolean = {
+    other match {
+      case otherConn:ElasticsearchConnection =>
+        val mySchema = schema()
+        val otherSchema = otherConn.schema()
+        mySchema.isSameAs(otherSchema)
+      case _ => false
+    }
+  }
+
   // Ex of mapping for an index with one type "event":
   // {
   //     "event": {
@@ -253,6 +263,8 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, conf
   //         }
   //     }
   // }
+
+  private def schema(): Schema[Map[String, String]] = schema(client, indexName)
 
   private def schema(client: TransportClient, index: String): Schema[Map[String, String]] = {
     val response = client

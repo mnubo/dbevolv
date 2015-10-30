@@ -35,7 +35,7 @@ object DatabaseMigrator extends Logging {
    * 007
    * 008
    *
-   * The following installed versions are valid, because they either start from the begining, or from a rebase:
+   * The following installed versions are valid, because they either start from the beginning, or from a rebase:
    *
    * (001)
    * (001, 002, 003)
@@ -43,7 +43,7 @@ object DatabaseMigrator extends Logging {
    * (006, 007)
    * (006, 007, 008)
    *
-   * The following installed version are invalid because they don't start from either the begining or from a rebase:
+   * The following installed version are invalid because they don't start from either the beginning or from a rebase:
    *
    * (002, 003)
    * (003)

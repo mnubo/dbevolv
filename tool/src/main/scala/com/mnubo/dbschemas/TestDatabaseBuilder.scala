@@ -37,12 +37,8 @@ object TestDatabaseBuilder extends Logging {
 
       log.info(s"Creating and migrating test database '$schemaName' to latest version ...")
       val images = availableMigrations.map { schemaVersion =>
-        migrate(schemaVersion.version, twice = true)
-
-        log.info(s"Commiting $dbKind $schemaName test instance to $repositoryName:${schemaVersion.version}...")
-        val imageId = Docker.commit(container.id, repositoryName, schemaVersion.version)
-
         if (schemaVersion.isRebase && schemaVersion != availableMigrations.head) {
+          // Verify the rebase before we migrate the ref db to the latest version
           log.info(s"Verifying rebase script ${schemaVersion.version}")
           val fromRebaseContainer = Docker.run(db.testDockerBaseImage)
 
@@ -52,10 +48,17 @@ object TestDatabaseBuilder extends Logging {
 
             // Verify schemas are compatible
             withConnection(fromRebaseContainer) {
-              connection =>
-                connection.setActiveSchema(schemaName)
-                if (!connection.isSchemaValid)
-                  throw new Exception(s"Rebase script for version ${schemaVersion.version} is not compatible with previous version schema")
+              fromConnection =>
+                fromConnection.setActiveSchema(schemaName)
+                if (!fromConnection.isSchemaValid)
+                  throw new Exception(s"Rebase script for version ${schemaVersion.version} is not valid")
+
+                withConnection(container) {
+                  connection =>
+                    connection.setActiveSchema(schemaName)
+                    if (!connection.isSameSchema(fromConnection))
+                      throw new Exception(s"Rebase script for version ${schemaVersion.version} is not compatible with previous version schema")
+                }
             }
           }
           finally {
@@ -63,6 +66,11 @@ object TestDatabaseBuilder extends Logging {
             Docker.remove(fromRebaseContainer.id)
           }
         }
+
+        migrate(schemaVersion.version, twice = true)
+
+        log.info(s"Commiting $dbKind $schemaName test instance to $repositoryName:${schemaVersion.version}...")
+        val imageId = Docker.commit(container.id, repositoryName, schemaVersion.version)
 
         if (doPush) {
           log.info(s"Publishing $dbKind $schemaName test instance to $repositoryName:${schemaVersion.version} ...")

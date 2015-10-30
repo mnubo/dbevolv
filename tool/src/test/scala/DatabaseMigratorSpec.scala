@@ -7,22 +7,22 @@ class DatabaseMigratorSpec extends WordSpec with Matchers with SpanSugar with Lo
   val Migration1 = Migration("1", isRebase = false)
   val Migration2 = Migration("2", isRebase = false)
   val Migration3 = Migration("3", isRebase = false)
-  val MigrationR10 = Migration("R1.0", isRebase = true)
-  val MigrationR11 = Migration("1.1", isRebase = false)
-  val MigrationR12 = Migration("1.2", isRebase = false)
-  val MigrationR2 = Migration("R2", isRebase = true)
-  val MigrationR21 = Migration("2.1", isRebase = false)
-  val MigrationR22 = Migration("2.2", isRebase = false)
+  val MigrationR4 = Migration("R4.0", isRebase = true)
+  val Migration41 = Migration("4.1", isRebase = false)
+  val Migration42 = Migration("4.2", isRebase = false)
+  val MigrationR5 = Migration("R5.0", isRebase = true)
+  val Migration51 = Migration("5.1", isRebase = false)
+  val Migration52 = Migration("5.2", isRebase = false)
 
   val InstalledVersion1 = InstalledVersion("1", null, null)
   val InstalledVersion2 = InstalledVersion("2", null, null)
   val InstalledVersion3 = InstalledVersion("3", null, null)
-  val InstalledVersionR10 = InstalledVersion("R1.0", null, null)
-  val InstalledVersionR11 = InstalledVersion("1.1", null, null)
-  val InstalledVersionR12 = InstalledVersion("1.2", null, null)
-  val InstalledVersionR2 = InstalledVersion("R2", null, null)
-  val InstalledVersionR21 = InstalledVersion("2.1", null, null)
-  val InstalledVersionR22 = InstalledVersion("2.2", null, null)
+  val InstalledVersionR4 = InstalledVersion("R4.0", null, null)
+  val InstalledVersion41 = InstalledVersion("4.1", null, null)
+  val InstalledVersion42 = InstalledVersion("4.2", null, null)
+  val InstalledVersionR5 = InstalledVersion("R5.0", null, null)
+  val InstalledVersion51 = InstalledVersion("5.1", null, null)
+  val InstalledVersion52 = InstalledVersion("5.2", null, null)
   val NoInstalls = Set.empty[InstalledVersion]
 
   val DefaultNamespace = "ingestion"
@@ -64,7 +64,7 @@ class DatabaseMigratorSpec extends WordSpec with Matchers with SpanSugar with Lo
       }
       "with rebase" should {
         "upgrade to X + 1" in {
-          val availableMigrations = Seq(Migration1, Migration2, Migration3, MigrationR10, MigrationR11, MigrationR12)
+          val availableMigrations = Seq(Migration1, Migration2, Migration3, MigrationR4, Migration41, Migration42)
           val targetVersion = Some(Migration3.version)
 
           val actual = DatabaseMigrator.getMigrationToApply(targetVersion, availableMigrations, installedVersion)
@@ -73,7 +73,7 @@ class DatabaseMigratorSpec extends WordSpec with Matchers with SpanSugar with Lo
           actual shouldEqual expected
         }
 
-        val availableMigrations = Seq(Migration1, Migration2, Migration3, MigrationR10, MigrationR11, MigrationR12)
+        val availableMigrations = Seq(Migration1, Migration2, Migration3, MigrationR4, Migration41, Migration42)
         "upgrade to X" in {
           val targetVersion = Some(Migration2.version)
 
@@ -87,7 +87,7 @@ class DatabaseMigratorSpec extends WordSpec with Matchers with SpanSugar with Lo
           val targetVersion = None
 
           val actual = DatabaseMigrator.getMigrationToApply(targetVersion, availableMigrations, installedVersion)
-          val expected = MigrationSpec("1", "1.2", skipSchemaVerification = true, Seq(MigrationR10, MigrationR11, MigrationR12), UpgradeOperation)
+          val expected = MigrationSpec("1", "4.2", skipSchemaVerification = true, Seq(MigrationR4, Migration41, Migration42), UpgradeOperation)
 
           actual shouldEqual expected
         }
@@ -118,7 +118,7 @@ class DatabaseMigratorSpec extends WordSpec with Matchers with SpanSugar with Lo
         }
       }
       "with rebase" should {
-        val availableMigrations = Seq(Migration1, Migration2, Migration3, MigrationR10, MigrationR11, MigrationR12)
+        val availableMigrations = Seq(Migration1, Migration2, Migration3, MigrationR4, Migration41, Migration42)
         "upgrade to X" in {
           val targetVersion = Some(Migration2.version)
 
@@ -132,7 +132,7 @@ class DatabaseMigratorSpec extends WordSpec with Matchers with SpanSugar with Lo
           val targetVersion = None
 
           val actual = DatabaseMigrator.getMigrationToApply(targetVersion, availableMigrations, installedVersion)
-          val expected = MigrationSpec("1", "1.2", skipSchemaVerification = false, Seq(Migration2, Migration3, MigrationR10, MigrationR11, MigrationR12), UpgradeOperation)
+          val expected = MigrationSpec("1", "4.2", skipSchemaVerification = false, Seq(Migration2, Migration3, MigrationR4, Migration41, Migration42), UpgradeOperation)
 
           actual shouldEqual expected
         }
@@ -140,14 +140,14 @@ class DatabaseMigratorSpec extends WordSpec with Matchers with SpanSugar with Lo
     }
 
     "determine upgrade versions properly from a starting point after a rebase" should {
-      val installedVersion = Set(InstalledVersionR11)
+      val installedVersion = Set(InstalledVersion41)
       "without rebase" should {
-        val availableMigrations = Seq(Migration1, Migration2, Migration3, MigrationR10, MigrationR11, MigrationR12)
+        val availableMigrations = Seq(Migration1, Migration2, Migration3, MigrationR4, Migration41, Migration42)
         "upgrade to X" in {
-          val targetVersion = Some(MigrationR12.version)
+          val targetVersion = Some(Migration42.version)
 
           val actual = DatabaseMigrator.getMigrationToApply(targetVersion, availableMigrations, installedVersion)
-          val expected = MigrationSpec("1.1", "1.2", skipSchemaVerification = false, Seq(MigrationR12), UpgradeOperation)
+          val expected = MigrationSpec("4.1", "4.2", skipSchemaVerification = false, Seq(Migration42), UpgradeOperation)
 
           actual shouldEqual expected
         }
@@ -156,18 +156,18 @@ class DatabaseMigratorSpec extends WordSpec with Matchers with SpanSugar with Lo
           val targetVersion = None
 
           val actual = DatabaseMigrator.getMigrationToApply(targetVersion, availableMigrations, installedVersion)
-          val expected = MigrationSpec("1.1", "1.2", skipSchemaVerification = false, Seq(MigrationR12), UpgradeOperation)
+          val expected = MigrationSpec("4.1", "4.2", skipSchemaVerification = false, Seq(Migration42), UpgradeOperation)
 
           actual shouldEqual expected
         }
       }
       "with rebase" should {
-        val availableMigrations = Seq(Migration1, Migration2, Migration3, MigrationR10, MigrationR11, MigrationR12, MigrationR2, MigrationR21, MigrationR22)
+        val availableMigrations = Seq(Migration1, Migration2, Migration3, MigrationR4, Migration41, Migration42, MigrationR5, Migration51, Migration52)
         "upgrade to X" in {
-          val targetVersion = Some(MigrationR12.version)
+          val targetVersion = Some(Migration42.version)
 
           val actual = DatabaseMigrator.getMigrationToApply(targetVersion, availableMigrations, installedVersion)
-          val expected = MigrationSpec("1.1", "1.2", skipSchemaVerification = false, Seq(MigrationR12), UpgradeOperation)
+          val expected = MigrationSpec("4.1", "4.2", skipSchemaVerification = false, Seq(Migration42), UpgradeOperation)
 
           actual shouldEqual expected
         }
@@ -176,7 +176,7 @@ class DatabaseMigratorSpec extends WordSpec with Matchers with SpanSugar with Lo
           val targetVersion = None
 
           val actual = DatabaseMigrator.getMigrationToApply(targetVersion, availableMigrations, installedVersion)
-          val expected = MigrationSpec("1.1", "2.2", skipSchemaVerification = false, Seq(MigrationR12, MigrationR2, MigrationR21, MigrationR22), UpgradeOperation)
+          val expected = MigrationSpec("4.1", "5.2", skipSchemaVerification = false, Seq(Migration42, MigrationR5, Migration51, Migration52), UpgradeOperation)
 
           actual shouldEqual expected
         }
@@ -186,11 +186,11 @@ class DatabaseMigratorSpec extends WordSpec with Matchers with SpanSugar with Lo
 
     "determine versions properly in when the starting point is a rebase" in {
       val installedVersion = NoInstalls
-      val availableMigrations = Seq(MigrationR10, MigrationR11, MigrationR12)
-      val targetVersion = Some(MigrationR11.version)
+      val availableMigrations = Seq(MigrationR4, Migration41, Migration42)
+      val targetVersion = Some(Migration41.version)
 
       val actual = DatabaseMigrator.getMigrationToApply(targetVersion, availableMigrations, installedVersion)
-      val expected = MigrationSpec("R1.0", "1.1", skipSchemaVerification = true, Seq(MigrationR10, MigrationR11), UpgradeOperation)
+      val expected = MigrationSpec("R4.0", "4.1", skipSchemaVerification = true, Seq(MigrationR4, Migration41), UpgradeOperation)
 
       actual shouldEqual expected
     }
@@ -208,7 +208,7 @@ class DatabaseMigratorSpec extends WordSpec with Matchers with SpanSugar with Lo
 
     "determine versions properly in downgrade when one rebase is available" in {
       val installedVersion = Set(InstalledVersion1, InstalledVersion2)
-      val availableMigrations = Seq(Migration1, Migration2, Migration3, MigrationR10, MigrationR11, MigrationR12)
+      val availableMigrations = Seq(Migration1, Migration2, Migration3, MigrationR4, Migration41, Migration42)
       val targetVersion = Some(Migration1.version)
 
       val actual = DatabaseMigrator.getMigrationToApply(targetVersion, availableMigrations, installedVersion)
@@ -218,12 +218,12 @@ class DatabaseMigratorSpec extends WordSpec with Matchers with SpanSugar with Lo
     }
 
     "determine versions properly in downgrade when one rebase is available post rebase" in {
-      val installedVersion = Set(InstalledVersionR10, InstalledVersionR11, InstalledVersionR12)
-      val availableMigrations = Seq(Migration1, Migration2, Migration3, MigrationR10, MigrationR11, MigrationR12)
-      val targetVersion = Some(MigrationR11.version)
+      val installedVersion = Set(InstalledVersionR4, InstalledVersion41, InstalledVersion42)
+      val availableMigrations = Seq(Migration1, Migration2, Migration3, MigrationR4, Migration41, Migration42)
+      val targetVersion = Some(Migration41.version)
 
       val actual = DatabaseMigrator.getMigrationToApply(targetVersion, availableMigrations, installedVersion)
-      val expected = MigrationSpec("1.2", "1.1", skipSchemaVerification = false, Seq(MigrationR12), DowngradeOperation)
+      val expected = MigrationSpec("4.2", "4.1", skipSchemaVerification = false, Seq(Migration42), DowngradeOperation)
 
       actual shouldEqual expected
     }
