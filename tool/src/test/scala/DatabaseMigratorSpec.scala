@@ -91,6 +91,17 @@ class DatabaseMigratorSpec extends WordSpec with Matchers with SpanSugar with Lo
 
           actual shouldEqual expected
         }
+
+        "upgrade to latest from rebase" in {
+          val availableMigrations = Seq(Migration1, Migration2, Migration3, MigrationR4)
+          val targetVersion = None
+
+          val actual = DatabaseMigrator.getMigrationToApply(targetVersion, availableMigrations, installedVersion)
+          val expected = MigrationSpec("1", "R4.0", skipSchemaVerification = true, Seq(MigrationR4), UpgradeOperation)
+
+          actual shouldEqual expected
+        }
+
       }
     }
 

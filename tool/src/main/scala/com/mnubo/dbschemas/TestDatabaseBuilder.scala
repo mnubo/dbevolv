@@ -44,14 +44,18 @@ object TestDatabaseBuilder extends Logging {
 
           try {
             // Execute rebase script on new db
-            migrate(schemaVersion.version, twice = false, container = fromRebaseContainer)
+            if(schemaVersion == availableMigrations.last) {
+              log.info("Migrating to last version")
+              migrate(null, twice = false, container = fromRebaseContainer)
+            } else {
+              log.info("Migrating to next version")
+              migrate(schemaVersion.version, twice = false, container = fromRebaseContainer)
+            }
 
             // Verify schemas are compatible
             withConnection(fromRebaseContainer) {
               fromConnection =>
                 fromConnection.setActiveSchema(schemaName)
-                if (!fromConnection.isSchemaValid)
-                  throw new Exception(s"Rebase script for version ${schemaVersion.version} is not valid")
 
                 withConnection(container) {
                   connection =>
@@ -109,7 +113,7 @@ object TestDatabaseBuilder extends Logging {
           connection,
           schemaName,
           drop = false,
-          Some(toVersion),
+          Option(toVersion),
           skipSchemaVerification = true,
           applyUpgradesTwice = twice,
           config
