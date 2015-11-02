@@ -19,7 +19,14 @@ $ exec cp -R stage4_migrations/0007 migrations/
 -> buildTestContainer
 $ exec rm -rf migrations/0007
 
-# expect the buildTestContainer to fail since the rebase is not equivalent to the previous version
+# expect the buildTestContainer to fail since the rebase is not equivalent to the previous version, it will have one table too many
 $ exec cp -R stage5_migrations/0008 migrations/
 -> buildTestContainer
 $ exec rm -rf migrations/0008
+
+# expect the buildTestContainer to fail since the rebase is not equivalent to the previous version, it will have one missing table
+$ exec cp -R stage6_migrations/0009 migrations/
+$ exec cp -R stage6_migrations/0010 migrations/
+-> buildTestContainer
+$ exec rm -rf migrations/0009
+$ exec rm -rf migrations/0010

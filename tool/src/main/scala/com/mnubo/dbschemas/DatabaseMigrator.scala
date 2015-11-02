@@ -203,7 +203,7 @@ object DatabaseMigrator extends Logging {
     } else if (lastInstalledMigrationIndex < targetIndex) {
       val startingIndex =
         if (lastInstalledMigrationIndex == -1)
-          availableMigrations.zipWithIndex.filter{case (mig, idx) => mig.isRebase && idx < targetIndex}.map(_._2).lastOption.getOrElse(0)
+          availableMigrations.zipWithIndex.filter{case (mig, idx) => mig.isRebase && idx <= targetIndex}.map(_._2).lastOption.getOrElse(0)
         else
           lastInstalledMigrationIndex + 1 // Existing database, execute everything from current index
 
