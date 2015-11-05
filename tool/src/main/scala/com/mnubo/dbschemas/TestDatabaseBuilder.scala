@@ -84,6 +84,13 @@ object TestDatabaseBuilder extends Logging {
         imageId
       }
 
+      if (doPush) {
+        log.info(s"Tagging and pushing latest version...")
+        val imageId = images.last
+        Docker.exec(s"docker tag -f $imageId $repositoryName:latest")
+        Docker.push(s"$repositoryName:latest")
+      }
+
       log.info(s"Testing rollback procedure...")
       val firstVersion = availableMigrations.head
       migrate(firstVersion.version, twice = false)
