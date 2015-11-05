@@ -60,8 +60,6 @@ object Docker extends Logging {
     val imageId =
       execAndRead(s"docker commit -p $container $repository:$tag")
 
-    exec(s"docker tag -f $imageId $repository:latest")
-
     imageId
   }
 

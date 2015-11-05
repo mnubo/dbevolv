@@ -102,9 +102,18 @@ class CassandraConnection(
   }
 
   override def markMigrationAsInstalled(migrationVersion: String, checksum: String, isRebase: Boolean) = {
-    if (isRebase)
+    if (isRebase) {
       execute(s"TRUNCATE ${schemaName}_version")
+      while (session.execute(new SimpleStatement(s"SELECT COUNT(*) as cnt FROM ${schemaName}_version").setConsistencyLevel(ConsistencyLevel.ALL)).one().getLong("cnt") > 0) {
+        log.info("Still truncating...")
+        Thread.sleep(500)
+      }
+    }
+
+    log.info(s"Marking migration $migrationVersion as installed....")
     execute(s"INSERT INTO ${schemaName}_version (migration_version, migration_date, checksum) VALUES ('$migrationVersion', '${df.format(new Date())}', '$checksum')")
+    if (isRebase)
+      Thread.sleep(10000) // Default commit period is 10s: https://github.com/apache/cassandra/blob/trunk/conf/cassandra.yaml#L297
   }
 
   override def markMigrationAsUninstalled(migrationVersion: String) =
