@@ -74,6 +74,9 @@ object TestDatabaseBuilder extends Logging {
         migrate(schemaVersion.version, twice = true)
 
         log.info(s"Commiting $dbKind $schemaName test instance to $repositoryName:${schemaVersion.version}...")
+        db.testDockerBaseImage.flushCmd.foreach { cmd =>
+          Docker.exec(container.id, cmd)
+        }
         val imageId = Docker.commit(container.id, repositoryName, schemaVersion.version)
 
         if (doPush) {
@@ -87,7 +90,7 @@ object TestDatabaseBuilder extends Logging {
       if (doPush) {
         log.info(s"Tagging and pushing latest version...")
         val imageId = images.last
-        Docker.exec(s"docker tag -f $imageId $repositoryName:latest")
+        Docker.execShell(s"docker tag -f $imageId $repositoryName:latest")
         Docker.push(s"$repositoryName:latest")
       }
 

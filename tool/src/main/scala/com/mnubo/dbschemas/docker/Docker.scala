@@ -33,7 +33,7 @@ object Docker extends Logging {
 
     val options = additionalOptions.map(_ + " ").getOrElse("")
 
-    val container = execAndRead(s"docker run -dt -v $userHome/.docker/config.json:/root/.docker/config.json:ro -v $userHome/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $dockerExecutableLocation:/bin/docker -p $hostPort:$exposedPort $options$name")
+    val container = execShellAndRead(s"docker run -dt -v $userHome/.docker/config.json:/root/.docker/config.json:ro -v $userHome/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $dockerExecutableLocation:/bin/docker -p $hostPort:$exposedPort $options$name")
 
     val info = ContainerInfo(container, hostPort)
 
@@ -43,42 +43,45 @@ object Docker extends Logging {
   }
 
   def stop(container: String) =
-    exec(s"docker stop $container")
+    execShell(s"docker stop $container")
 
   def start(container: ContainerInfo, isStarted: (String, ContainerInfo) => Boolean) = {
-    val previousLog = execAndRead(s"docker logs ${container.id}")
+    val previousLog = execShellAndRead(s"docker logs ${container.id}")
 
     def isStartedOnNewLogs(logs: String, container: ContainerInfo) =
       isStarted(logs.replace(previousLog, ""), container)
 
-    exec(s"docker start ${container.id}")
+    execShell(s"docker start ${container.id}")
 
     waitStarted(container, isStartedOnNewLogs)
   }
 
   def commit(container: String, repository: String, tag: String): String = {
     val imageId =
-      execAndRead(s"docker commit -p $container $repository:$tag")
+      execShellAndRead(s"docker commit -p $container $repository:$tag")
 
     imageId
   }
 
+  def exec(container: String, cmd: Seq[String]) =
+    execShellAndRead(s"docker exec -i $container ${cmd.mkString(" ")}")
+
   def push(repository: String) =
-    exec(s"docker push $repository")
+    execShell(s"docker push $repository")
 
   def remove(container: String) =
-    exec(s"docker rm $container")
+    execShell(s"docker rm $container")
 
   def removeImage(image: String) =
-    exec(s"docker rmi $image")
+    execShell(s"docker rmi $image")
 
-  def exec(cmd: String) = {
+  def execShell(cmd: String) = {
     log.info(cmd)
     if (0 != cmd.!)
       throw new Exception(s"Cannot execute [$cmd].")
   }
 
-  def execAndRead(cmd: String) = {
+  def execShellAndRead(cmd: String) = {
     val out = new StringBuilder
     val err = new StringBuilder
     val l = ProcessLogger(o => out.append(o + "\n"), e => err.append(e) + "\n")
@@ -93,7 +96,7 @@ object Docker extends Logging {
 
   @tailrec
   private def waitStarted(container: ContainerInfo, isStarted: (String, ContainerInfo) => Boolean, startTS:Long = System.currentTimeMillis()): Unit = {
-    val logs = execAndRead(s"docker logs ${container.id}")
+    val logs = execShellAndRead(s"docker logs ${container.id}")
     if (!isStarted(logs, container) )
     {
       Thread.sleep(100)
