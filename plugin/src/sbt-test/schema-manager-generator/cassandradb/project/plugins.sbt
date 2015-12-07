@@ -6,7 +6,7 @@ resolvers ++= Seq(
 addSbtPlugin("com.mnubo" % "dbschemas-sbt-plugin" % System.getProperty("plugin.version"))
 
 libraryDependencies ++= Seq(
-  "com.mnubo"               %  "test-utils"             % "[1.0.61,)" excludeAll (
+  "com.mnubo"               %  "test-utils"             % "[1.0.235,)" excludeAll (
     ExclusionRule("org.joda", "joda-convert"),
     ExclusionRule("org.slf4j", "slf4j-log4j12"),
     ExclusionRule("com.sun.jmx", "jmxri"),
