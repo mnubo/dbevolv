@@ -14,7 +14,6 @@ import sbtdocker.staging.CopyFile
 import sbtdocker.{Instruction, DockerPlugin, ImageName}
 import sbtrelease.ReleasePlugin.ReleaseKeys._
 import sbtrelease.ReleasePlugin._
-import sbtrelease.ReleasePlugin.autoImport.ReleaseStep
 import sbtrelease.ReleaseStateTransformations._
 import sbtrelease._
 
