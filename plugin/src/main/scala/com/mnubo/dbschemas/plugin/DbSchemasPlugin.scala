@@ -14,6 +14,7 @@ import sbtdocker.staging.CopyFile
 import sbtdocker.{Instruction, DockerPlugin, ImageName}
 import sbtrelease.ReleasePlugin.ReleaseKeys._
 import sbtrelease.ReleasePlugin._
+import sbtrelease.ReleasePlugin.autoImport.ReleaseStep
 import sbtrelease.ReleaseStateTransformations._
 import sbtrelease._
 
@@ -110,6 +111,7 @@ object DbSchemasPlugin extends AutoPlugin {
     nextVersion                           := { (ver: String) => sbtrelease.Version(ver).map(_.bumpBugfix.string).getOrElse(versionFormatError) }, // Don't 'snapshot' the version
     // Don't need to commit the release version, since it is already the good one.
     releaseProcess                        := Seq[ReleaseStep](
+      setupRemoteTracking,
       inquireVersions,
       runTest,
       setReleaseVersion,
@@ -119,6 +121,17 @@ object DbSchemasPlugin extends AutoPlugin {
       commitNextVersion,
       pushChanges
     )
+  )
+
+  private lazy val setupRemoteTracking: ReleaseStep = ReleaseStep(
+    action = identity,
+    check = { st: State =>
+      val cmd = "git checkout -t -B master origin/master"
+      st.log.info(cmd)
+      cmd.!
+      st
+    },
+    enableCrossBuild = true
   )
 
   private def buildTestContainerTask(doPush: Boolean) = Def.task[Unit] {
