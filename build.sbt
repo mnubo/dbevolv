@@ -8,7 +8,7 @@ lazy val tool = (project in file("tool"))
   .settings(
     name := "dbschemas",
     libraryDependencies ++= Seq(
-      "com.mnubo"               %  "app-util"               % "[1.0.0,)" changing(),
+      "com.mnubo"               %  "app-util"               % "[1.0.180,)" changing(),
       "com.mnubo"               %  "test-utils"             % "[1.0.248,)" changing() excludeAll (
         ExclusionRule("org.slf4j", "slf4j-log4j12"),
         ExclusionRule("com.sun.jmx", "jmxri"),
