@@ -7,7 +7,7 @@ import java.sql.{ResultSet, Connection, DriverManager}
 
 import com.datastax.driver.core.{Cluster, Row}
 import com.mnubo._
-import com.mnubo.test_utils.docker.Docker._
+import com.mnubo.docker_utils.docker.Docker._
 
 import scala.annotation.tailrec
 import sys.process.{Process => SProcess, ProcessLogger => SProcessLogger}
