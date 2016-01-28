@@ -4,7 +4,7 @@ import java.net.ServerSocket
 import org.apache.commons.io.FileUtils
 import java.security.MessageDigest
 import com.mnubo._
-import com.mnubo.test_utils.docker.Docker._
+import com.mnubo.docker_utils.docker.Docker._
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthStatus
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.ImmutableSettings

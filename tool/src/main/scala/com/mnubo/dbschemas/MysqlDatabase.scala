@@ -5,7 +5,7 @@ import java.sql.{ResultSet, Connection, DriverManager}
 import java.text.SimpleDateFormat
 import java.util.{Date, TimeZone}
 
-import com.mnubo.test_utils.mysql.DockerMySQL
+import com.mnubo.docker_utils.mysql.DockerMySQL
 import com.typesafe.config.Config
 import org.joda.time.{DateTime, DateTimeZone}
 

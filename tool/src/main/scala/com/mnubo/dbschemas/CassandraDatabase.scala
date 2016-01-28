@@ -7,7 +7,7 @@ import java.util.Date
 import com.datastax.driver.core.exceptions.InvalidQueryException
 import com.datastax.driver.core.{ConsistencyLevel, SimpleStatement, Session, Cluster}
 import com.mnubo.app_util.Logging
-import com.mnubo.test_utils.cassandra.DockerCassandra
+import com.mnubo.docker_utils.cassandra.DockerCassandra
 import com.typesafe.config.Config
 import org.joda.time.{DateTimeZone, DateTime}
 

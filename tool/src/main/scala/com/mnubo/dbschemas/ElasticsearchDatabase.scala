@@ -6,7 +6,7 @@ import java.util.{Date, Map => JMap}
 
 import com.mnubo.app_util.Logging
 import com.mnubo.dbschemas.docker.{Docker, ContainerInfo}
-import com.mnubo.test_utils.elasticsearch.DockerElasticsearch
+import com.mnubo.docker_utils.elasticsearch.DockerElasticsearch
 import com.typesafe.config.Config
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthStatus
 import org.elasticsearch.client.transport.TransportClient
