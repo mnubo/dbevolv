@@ -7,6 +7,7 @@ lazy val tool = (project in file("tool"))
   .enablePlugins(MnuboLibraryPlugin)
   .settings(
     name := "dbschemas",
+    crossPaths := true,
     libraryDependencies ++= Seq(
       "com.mnubo"               %  "app-util"               % "[1.0.180,)" changing(),
       "com.mnubo"               %  "docker-utils"           % "[1.0.248,)" changing() excludeAll (
