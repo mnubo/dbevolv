@@ -74,9 +74,9 @@ object TestDatabaseBuilder extends Logging {
 
         migrate(schemaVersion.version, twice = true)
         if(hasInstanceForEachNamespace){
-          migrateNamespace(schemaVersion.version, "cars")
-          migrateNamespace(schemaVersion.version, "printers")
-          migrateNamespace(schemaVersion.version, "cows")
+          Seq("cars", "printers", "cows").foreach(namespace =>
+            migrateNamespace(schemaVersion.version, namespace)
+          )
         }
 
         log.info(s"Commiting $dbKind $schemaName test instance to $repositoryName:${schemaVersion.version}...")
