@@ -25,6 +25,7 @@ object TestDatabaseBuilder extends Logging {
     val config = mnuboConfig.withValue("force_pull_verification_db", ConfigValueFactory.fromAnyRef(false))
     val dbKind = config.getString("database_kind")
     val schemaName = config.getString("schema_name")
+    val hasInstanceForEachNamespace = config.getBoolean("hasInstanceForEachNamespace")
     val imageName = s"test-$schemaName"
     val repositoryName = s"$MnuboDockerRegistry/$imageName"
     val db = Database.databases(dbKind)
@@ -72,6 +73,11 @@ object TestDatabaseBuilder extends Logging {
         }
 
         migrate(schemaVersion.version, twice = true)
+        if(hasInstanceForEachNamespace){
+          migrateNamespace(schemaVersion.version, "cars")
+          migrateNamespace(schemaVersion.version, "printers")
+          migrateNamespace(schemaVersion.version, "cows")
+        }
 
         log.info(s"Commiting $dbKind $schemaName test instance to $repositoryName:${schemaVersion.version}...")
         db.testDockerBaseImage.flushCmd.foreach { cmd =>
@@ -116,7 +122,21 @@ object TestDatabaseBuilder extends Logging {
       Docker.remove(container.id)
     }
 
-    def migrate(toVersion: String, twice: Boolean, container: ContainerInfo = container) =
+    def migrateNamespace(toVersion: String, namespace:String, container: ContainerInfo = container) = {
+      withConnection(container) { connection =>
+        log.info(s"Connected to $container.")
+        val args = DbSchemasArgsConfig(false)
+        DatabaseMigrator.migrate(DbMigrationConfig(
+          connection,
+          args,
+          config,
+          Option(namespace),
+          Option(toVersion)
+        ))
+      }
+    }
+
+    def migrate(toVersion: String, twice: Boolean, container: ContainerInfo = container) = {
       withConnection(container) { connection =>
         log.info(s"Connected to $container.")
         DatabaseMigrator.migrate(DbMigrationConfig(
@@ -129,6 +149,7 @@ object TestDatabaseBuilder extends Logging {
           config
         ))
       }
+    }
 
     def withConnection(container: ContainerInfo)(action: DatabaseConnection => Unit) =
       using(db.openConnection(

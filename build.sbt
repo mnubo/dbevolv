@@ -10,7 +10,7 @@ lazy val tool = (project in file("tool"))
     crossPaths := true,
     libraryDependencies ++= Seq(
       "com.mnubo"               %  "app-util"               % "[1.0.180,)" changing(),
-      "com.mnubo"               %  "docker-utils"           % "[1.0.248,)" changing() excludeAll (
+      "com.mnubo"               %  "docker-utils"           % "[1.0.266,)" changing() excludeAll (
         ExclusionRule("com.mnubo", "app-util"),
         ExclusionRule("org.slf4j", "slf4j-log4j12"),
         ExclusionRule("com.sun.jmx", "jmxri"),
