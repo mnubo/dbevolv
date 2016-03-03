@@ -5,7 +5,7 @@ import java.io.File
 
 import com.mnubo.app_util.MnuboEnvironments._
 import com.mnubo.app_util.{Logging, MnuboConfiguration}
-import com.typesafe.config.ConfigFactory
+import com.typesafe.config.{Config, ConfigFactory}
 
 object DbSchemas extends App with Logging {
   private val config =
@@ -39,11 +39,11 @@ object DbSchemas extends App with Logging {
         head(s"Upgrades / downgrades the $schemaName database to the given version.")
 
       opt[String]('v', "version") action { (x, c) =>
-        c.copy(version = Some(x)) } text "The version you want to upgrade / downgrade to. If not specified, will upagrade to latest version."
+        c.copy(version = Some(x)) } text "The version you want to upgrade / downgrade to. If not specified, will upgrade to latest version."
 
       if (hasInstanceForEachNamespace)
         opt[String]('n', "namespace") action { (x, c) =>
-          c.copy(namespace = Some(x)) } text "The namespace you want to upgrade / downgrade to. If not specified, will upagrade all namespaces."
+          c.copy(namespaceSpecified = true, namespace = if(x.isEmpty) None else Some(x)) } text "The namespace you want to upgrade / downgrade to. If not specified, will upgrade all namespaces."
 
       if (!isSensitiveEnvironment) {
         opt[Unit]("drop") action { (_, c) =>
@@ -85,10 +85,19 @@ object DbSchemas extends App with Logging {
       throw new Exception("Sorry, you have to define a 'schema_version' in your 'db.conf' for dev, qa, preprod, sandbox, and prod.")
 
     val namespaces =
-      if (argConfig.namespace.isDefined)
+      if (argConfig.namespaceSpecified)
         Seq(argConfig.namespace)
-      else if (hasInstanceForEachNamespace)
-        new CassandraNamespaceRepository(config).fetchNamespaces.map(Some(_))
+      else if (hasInstanceForEachNamespace) {
+        val namespaceRepository =
+          getClass
+            .getClassLoader
+            .loadClass(config.getString("namespace_repository_class"))
+            .getConstructor(classOf[Config])
+            .newInstance(config)
+            .asInstanceOf[NamespaceRepository]
+
+        namespaceRepository.fetchNamespaces
+      }
       else
         Seq(None)
 

@@ -15,6 +15,7 @@ case class DbMigrationConfig(connection: DatabaseConnection,
 case class DbSchemasArgsConfig(drop: Boolean = false,
                                version: Option[String] = None,
                                cmd: DbCommand = Migrate,
+                               namespaceSpecified: Boolean = false,
                                namespace: Option[String] = None)
 
 object DbMigrationConfig {

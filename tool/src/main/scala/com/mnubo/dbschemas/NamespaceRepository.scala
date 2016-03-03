@@ -6,7 +6,11 @@ import com.typesafe.config.Config
 import collection.JavaConverters._
 
 trait NamespaceRepository {
-  def fetchNamespaces: Seq[String]
+  def fetchNamespaces: Seq[Option[String]]
+}
+
+class IntegrationNamespaceRepository(config: Config) extends NamespaceRepository {
+  def fetchNamespaces: Seq[Option[String]] = Seq(None, Option("cars"), Option("cows"), Option("printers"))
 }
 
 class CassandraNamespaceRepository(config: Config) extends NamespaceRepository {
@@ -35,6 +39,7 @@ class CassandraNamespaceRepository(config: Config) extends NamespaceRepository {
           .asScala
           .map(_.getString("namespace"))
           .sorted
+          .map(Some(_))
       }
     }
   }
