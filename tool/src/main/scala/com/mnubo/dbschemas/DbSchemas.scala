@@ -24,7 +24,7 @@ object DbSchemas extends App with Logging {
   private val env =
     System.getenv("ENV")
   private val isSensitiveEnvironment =
-    Set(Dev, Qa, Preprod, Sandbox, Prod, QaSandbox, PreprodSandbox).contains(env)
+    Set(Dev, Qa, Sandbox, Prod, QaSandbox).contains(env)
   private val hasInstanceForEachNamespace =
     config.getBoolean("hasInstanceForEachNamespace")
   private val schemaName =
