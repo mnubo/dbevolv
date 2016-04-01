@@ -2,21 +2,20 @@ package com.mnubo
 package dbschemas
 
 import java.text.SimpleDateFormat
-import java.util.{Date, Map => JMap}
+import java.util.Date
 
 import com.mnubo.app_util.Logging
-import com.mnubo.dbschemas.docker.{Docker, ContainerInfo}
+import com.mnubo.dbschemas.docker.{ContainerInfo, Docker}
 import com.mnubo.docker_utils.elasticsearch.DockerElasticsearch
 import com.typesafe.config.Config
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthStatus
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.ImmutableSettings
 import org.elasticsearch.common.transport.InetSocketTransportAddress
-import org.elasticsearch.index.query.{QueryBuilder, QueryBuilders}
+import org.elasticsearch.index.query.QueryBuilders
 import org.joda.time.{DateTime, DateTimeZone}
 import spray.json._
 
-import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.util.Try
 
@@ -327,11 +326,11 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, conf
           .asInstanceOf[JsString]
           .value
 
-        log.info(s"Found a $name property of type $typ.")
+        log.debug(s"Mapping parser: found a $name property of type $typ.")
         if (typ == "nested")
           parseMappingProperties(property, prefix + name + ".")
         else {
-          log.info(s"Creating a $prefix$name property of type $typ.")
+          log.debug(s"Mapping parser: returning a $prefix$name property of type $typ.")
           Set(
             Column(
               prefix + name,
