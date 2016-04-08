@@ -15,8 +15,10 @@ class DefaultDatabaseNameProvider extends DatabaseNameProvider {
 }
 
 class LegacyDatabaseNameProvider extends DatabaseNameProvider {
-  def computeDatabaseName(schemaLogicalName: String, namespace: Option[String]) =
-    namespace.get
+  def computeDatabaseName(schemaLogicalName: String, namespace: Option[String]) = namespace match {
+    case None => schemaLogicalName
+    case Some(ns) => ns
+  }
 }
 
 class ZoneAwareDatabaseNameProvider extends DatabaseNameProvider {
