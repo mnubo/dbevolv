@@ -3,9 +3,9 @@ package dbschemas
 
 import java.io.File
 
-import com.mnubo.app_util.{MnuboConfiguration, Logging}
+import com.mnubo.app_util.{Logging, MnuboConfiguration}
 import com.mnubo.dbschemas.docker.{ContainerInfo, Docker}
-import com.typesafe.config.{ConfigValueFactory, ConfigParseOptions, ConfigFactory}
+import com.typesafe.config.{ConfigFactory, ConfigParseOptions, ConfigValueFactory}
 
 import scala.util.control.NonFatal
 
@@ -24,7 +24,15 @@ object TestDatabaseBuilder extends Logging {
     )
     val config = mnuboConfig.withValue("force_pull_verification_db", ConfigValueFactory.fromAnyRef(false))
     val dbKind = config.getString("database_kind")
+    val dbNameProvider =
+      getClass
+        .getClassLoader
+        .loadClass(config.getString("name_provider_class"))
+        .newInstance()
+        .asInstanceOf[DatabaseNameProvider]
+
     val schemaName = config.getString("schema_name")
+    val dbSchemaName = dbNameProvider.computeDatabaseName(schemaName, None)
     val hasInstanceForEachNamespace = config.getBoolean("hasInstanceForEachNamespace")
     val imageName = s"test-$schemaName"
     val repositoryName = s"$MnuboDockerRegistry/$imageName"
@@ -36,7 +44,7 @@ object TestDatabaseBuilder extends Logging {
     try {
       val availableMigrations = DatabaseMigrator.getAvailableMigrations
 
-      log.info(s"Creating and migrating test database '$schemaName' to latest version ...")
+      log.info(s"Creating and migrating test database '$dbSchemaName' to latest version ...")
       val images = availableMigrations.map { schemaVersion =>
         if (schemaVersion.isRebase && schemaVersion != availableMigrations.head) {
           // Verify the rebase before we migrate the ref db to the latest version
@@ -56,11 +64,11 @@ object TestDatabaseBuilder extends Logging {
             // Verify schemas are compatible
             withConnection(fromRebaseContainer) {
               fromConnection =>
-                fromConnection.setActiveSchema(schemaName)
+                fromConnection.setActiveSchema(dbSchemaName)
 
                 withConnection(container) {
                   connection =>
-                    connection.setActiveSchema(schemaName)
+                    connection.setActiveSchema(dbSchemaName)
                     if (!connection.isSameSchema(fromConnection))
                       throw new Exception(s"Rebase script for version ${schemaVersion.version} is not compatible with previous version schema")
                 }
@@ -141,7 +149,7 @@ object TestDatabaseBuilder extends Logging {
         log.info(s"Connected to $container.")
         DatabaseMigrator.migrate(DbMigrationConfig(
           connection,
-          schemaName,
+          dbSchemaName,
           drop = false,
           Option(toVersion),
           skipSchemaVerification = true,
@@ -153,7 +161,7 @@ object TestDatabaseBuilder extends Logging {
 
     def withConnection(container: ContainerInfo)(action: DatabaseConnection => Unit) =
       using(db.openConnection(
-        schemaName,
+        dbSchemaName,
         Docker.dockerHost,
         container.realPort,
         db.testDockerBaseImage.username,
