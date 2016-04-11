@@ -22,9 +22,17 @@ class LegacyDatabaseNameProvider extends DatabaseNameProvider {
 }
 
 class ZoneAwareDatabaseNameProvider extends DatabaseNameProvider {
-  private val mzConfig = MnuboConfiguration.loadMultiZoneConfig(env = Option(System.getenv("ENV")).getOrElse("integration"), configDirectory = ".", doConfigureLogback = false)
+  def defaultEnv = "integration"
+  private val mzConfig = MnuboConfiguration.loadMultiZoneConfig(env = Option(System.getenv("ENV")).getOrElse(defaultEnv), configDirectory = ".", doConfigureLogback = false)
   def computeDatabaseName(schemaLogicalName: String, namespace: Option[String]) = namespace match {
     case None => s"${mzConfig.currentZone}_$schemaLogicalName"
     case Some(ns) => s"${mzConfig.currentZone}_${schemaLogicalName}_$ns"
+  }
+}
+
+object ZoneAwareDatabaseNameProvider {
+  def forProd() = new ZoneAwareDatabaseNameProvider
+  def forSandbox() = new ZoneAwareDatabaseNameProvider{
+    override def defaultEnv = "integration-sandbox"
   }
 }

@@ -33,6 +33,11 @@ object TestDatabaseBuilder extends Logging {
 
     val schemaName = config.getString("schema_name")
     val dbSchemaName = dbNameProvider.computeDatabaseName(schemaName, None)
+    val maybeSandboxNameProvider = dbNameProvider match {
+      case x:ZoneAwareDatabaseNameProvider=> Some(ZoneAwareDatabaseNameProvider.forSandbox())
+      case _ => None
+    }
+
     val hasInstanceForEachNamespace = config.getBoolean("hasInstanceForEachNamespace")
     val imageName = s"test-$schemaName"
     val repositoryName = s"$MnuboDockerRegistry/$imageName"
@@ -81,10 +86,20 @@ object TestDatabaseBuilder extends Logging {
         }
 
         migrate(schemaVersion.version, twice = true)
+        // Migrate sandbox if required
+        maybeSandboxNameProvider.foreach{
+          sandboxNameProvider =>
+            migrate(schemaVersion.version, twice = true, maybeOtherSchemaName = Some(sandboxNameProvider.computeDatabaseName(schemaName, None)))
+        }
         if(hasInstanceForEachNamespace){
-          Seq("cars", "printers", "cows").foreach(namespace =>
+          Seq("cars", "printers", "cows").foreach { namespace =>
             migrateNamespace(schemaVersion.version, namespace)
-          )
+            // Migrate sandbox if required
+            maybeSandboxNameProvider.foreach {
+              sandboxNameProvider =>
+                migrateNamespace(schemaVersion.version, namespace, maybeOtherSchemaName = Some(sandboxNameProvider.computeDatabaseName(schemaName, None)))
+            }
+          }
         }
 
         log.info(s"Commiting $dbKind $schemaName test instance to $repositoryName:${schemaVersion.version}...")
@@ -130,26 +145,28 @@ object TestDatabaseBuilder extends Logging {
       Docker.remove(container.id)
     }
 
-    def migrateNamespace(toVersion: String, namespace:String, container: ContainerInfo = container) = {
+    def migrateNamespace(toVersion: String, namespace:String, container: ContainerInfo = container, maybeOtherSchemaName:Option[String] = None) = {
       withConnection(container) { connection =>
         log.info(s"Connected to $container.")
         val args = DbSchemasArgsConfig(false)
+
+        val maybeConfig = maybeOtherSchemaName.map(name => ConfigFactory.parseString(s"schema_name = $name").withFallback(config))
         DatabaseMigrator.migrate(DbMigrationConfig(
           connection,
           args,
-          config,
+          maybeConfig.getOrElse(config),
           Option(namespace),
           Option(toVersion)
         ))
       }
     }
 
-    def migrate(toVersion: String, twice: Boolean, container: ContainerInfo = container) = {
+    def migrate(toVersion: String, twice: Boolean, container: ContainerInfo = container, maybeOtherSchemaName:Option[String] = None) = {
       withConnection(container) { connection =>
         log.info(s"Connected to $container.")
         DatabaseMigrator.migrate(DbMigrationConfig(
           connection,
-          dbSchemaName,
+          maybeOtherSchemaName.getOrElse(dbSchemaName),
           drop = false,
           Option(toVersion),
           skipSchemaVerification = true,
