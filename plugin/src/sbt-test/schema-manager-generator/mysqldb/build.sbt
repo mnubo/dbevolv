@@ -32,10 +32,10 @@ TaskKey[Unit]("check-mgr") := {
   case class Mysql() {
     val port = using(new ServerSocket(0))(_.getLocalPort)
 
-    runShell("docker pull dockerep-0.mtl.mnubo.com/test-mysql:5.6.26")
+    runShell("docker pull dockerep-0.mtl.mnubo.com/test-mysql:5.6.29")
 
     val mysqlContainerId =
-      runShellAndListen(s"docker run -d -p $port:3306 -e MYSQL_ROOT_PASSWORD=root dockerep-0.mtl.mnubo.com/test-mysql:5.6.26")
+      runShellAndListen(s"docker run -d -p $port:3306 -e MYSQL_ROOT_PASSWORD=root dockerep-0.mtl.mnubo.com/test-mysql:5.6.29")
 
     private def isStarted =
       runShellAndListen(s"docker logs $mysqlContainerId")
