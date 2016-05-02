@@ -96,7 +96,7 @@ class CassandraConnection(
       .asScala
       .map(row => InstalledVersion(
         row.getString("migration_version"),
-        new DateTime(row.getDate("migration_date").getTime).withZone(DateTimeZone.UTC),
+        new DateTime(row.getTimestamp("migration_date").getTime).withZone(DateTimeZone.UTC),
         row.getString("checksum")
       ))
       .toSet
