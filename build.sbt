@@ -16,7 +16,7 @@ lazy val tool = (project in file("tool"))
         ExclusionRule("com.sun.jmx", "jmxri"),
         ExclusionRule("com.sun.jdmk", "jmxtools")
         ) changing(),
-      "com.datastax.cassandra"  %  "cassandra-driver-core"  % "2.1.4",
+      "com.datastax.cassandra"  %  "cassandra-driver-core"  % "3.0.0",
       "org.elasticsearch"       %  "elasticsearch"          % "1.5.2" % "provided",
       "mysql"                   %  "mysql-connector-java"   % "5.1.35" % "provided",
       "joda-time"               %  "joda-time"              % "2.7",
