@@ -7,14 +7,13 @@ lazy val tool = (project in file("tool"))
   .enablePlugins(MnuboLibraryPlugin)
   .settings(
     name := "dbschemas",
+    scalaVersion := "2.10.6",
     crossPaths := true,
     libraryDependencies ++= Seq(
       "com.mnubo"               %  "app-util"               % "[1.0.180,)" changing(),
-      "com.mnubo"               %  "docker-utils"           % "[1.0.266,)" changing() excludeAll (
+      "com.mnubo"               %  "docker-utils"           % "[1.0.332,)" changing() excludeAll (
         ExclusionRule("com.mnubo", "app-util"),
-        ExclusionRule("org.slf4j", "slf4j-log4j12"),
-        ExclusionRule("com.sun.jmx", "jmxri"),
-        ExclusionRule("com.sun.jdmk", "jmxtools")
+        ExclusionRule("org.slf4j", "slf4j-log4j12")
         ) changing(),
       "com.datastax.cassandra"  %  "cassandra-driver-core"  % "3.0.0",
       "org.elasticsearch"       %  "elasticsearch"          % "1.5.2" % "provided",
@@ -22,7 +21,13 @@ lazy val tool = (project in file("tool"))
       "joda-time"               %  "joda-time"              % "2.7",
       "io.spray"                %% "spray-json"             % "1.3.1",
       "com.github.scopt"        %% "scopt"                  % "3.3.0"
-    )
+    ),
+
+    assemblyMergeStrategy in assembly := {
+      case "META-INF/io.netty.versions.properties"                      => MergeStrategy.first
+      case x => (assemblyMergeStrategy in assembly).value(x)
+    }
+
   )
 
 lazy val plugin = (project in file("plugin"))

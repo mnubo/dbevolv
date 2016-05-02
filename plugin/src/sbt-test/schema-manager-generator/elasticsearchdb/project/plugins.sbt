@@ -6,10 +6,8 @@ resolvers ++= Seq(
 addSbtPlugin("com.mnubo" % "dbschemas-sbt-plugin" % System.getProperty("plugin.version"))
 
 libraryDependencies ++= Seq(
-  "com.mnubo"               %  "docker-utils"             % "[1.0.235,)" excludeAll (
+  "com.mnubo"               %  "docker-utils"             % "[1.0.332,)" changing() excludeAll (
     ExclusionRule("org.joda", "joda-convert"),
-    ExclusionRule("org.slf4j", "slf4j-log4j12"),
-    ExclusionRule("com.sun.jmx", "jmxri"),
-    ExclusionRule("com.sun.jdmk", "jmxtools")
+    ExclusionRule("org.slf4j", "slf4j-log4j12")
   )
 )

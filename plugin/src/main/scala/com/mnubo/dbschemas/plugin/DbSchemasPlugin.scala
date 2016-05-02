@@ -60,6 +60,12 @@ object DbSchemasPlugin extends AutoPlugin {
         ExclusionRule("com.sun.jdmk", "jmxtools")
         )
     ) ++ dbDependencies(config.getString("database_kind")),
+
+    assemblyMergeStrategy in assembly := {
+      case "META-INF/io.netty.versions.properties"                      => MergeStrategy.first
+      case x => (assemblyMergeStrategy in assembly).value(x)
+    },
+
     // Give the fat jar a simple name
     assemblyJarName                       := s"$schemaName-schema-manager.jar",
     buildTestContainer                    <<= buildTestContainerTask(doPush = false),
