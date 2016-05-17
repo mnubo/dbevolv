@@ -76,7 +76,7 @@ object DbSchemasPlugin extends AutoPlugin {
       val artifactTargetPath = s"/app/${artifact.name}"
 
       val base = Seq[Instruction](
-        From("domblack/oracle-jre8"),
+        From("dockerep-0.mtl.mnubo.com/jre8:1.0.6"),
         Add(CopyFile(artifact), artifactTargetPath),
         Add(CopyFile(new File("db.conf")), "/app/db.conf"),
         Add(CopyFile(new File("migrations")), "/app/migrations/"),
