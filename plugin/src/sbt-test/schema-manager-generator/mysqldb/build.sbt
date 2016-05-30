@@ -1,4 +1,4 @@
-enablePlugins(DbSchemasPlugin)
+enablePlugins(DbevolvPlugin)
 
 import java.net.ServerSocket
 import java.nio.file.{Paths, Files}
@@ -10,6 +10,8 @@ import com.mnubo.docker_utils.docker.Docker._
 
 import scala.annotation.tailrec
 import sys.process.{Process => SProcess, ProcessLogger => SProcessLogger}
+
+resolvers += "Mnubo release repository" at "http://artifactory.mtl.mnubo.com:8081/artifactory/libs-release-local/" // Temporary while removing all of our deps
 
 TaskKey[Unit]("check-mgr") := {
   val logger = streams.value.log
@@ -32,10 +34,10 @@ TaskKey[Unit]("check-mgr") := {
   case class Mysql() {
     val port = using(new ServerSocket(0))(_.getLocalPort)
 
-    runShell("docker pull dockerep-0.mtl.mnubo.com/test-mysql:5.6.30-stable")
+    runShell("docker pull mysql:5.6")
 
     val mysqlContainerId =
-      runShellAndListen(s"docker run -d -p $port:3306 -e MYSQL_ROOT_PASSWORD=root dockerep-0.mtl.mnubo.com/test-mysql:5.6.30-stable")
+      runShellAndListen(s"docker run -d -p $port:3306 -e MYSQL_ROOT_PASSWORD=root mysql:5.6")
 
     private def isStarted =
       runShellAndListen(s"docker logs $mysqlContainerId")
@@ -75,7 +77,7 @@ TaskKey[Unit]("check-mgr") := {
     def close(): Unit = {
       connection.close()
       s"docker stop $mysqlContainerId".!
-      s"docker rm $mysqlContainerId".!
+      s"docker rm -v $mysqlContainerId".!
     }
   }
 
@@ -92,7 +94,7 @@ TaskKey[Unit]("check-mgr") := {
     import ms._
 
     val mgrCmd =
-      s"docker run -i --rm --link $mysqlContainerId:mysql -v $userHome/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $dockerExec:/bin/docker -e ENV=integration dockerep-0.mtl.mnubo.com/mysqldb-mgr:1.0.0-SNAPSHOT"
+      s"docker run -i --rm --link $mysqlContainerId:mysql -v $userHome/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $dockerExec:/bin/docker -v $userHome/.docker/config.json:/root/.docker/config.json:ro -e ENV=integration mysqldb-mgr:1.0.0-SNAPSHOT"
 
     // Run the schema manager to migrate the db to latest version
     assert(
@@ -179,9 +181,9 @@ TaskKey[Unit]("check-mgr") := {
     )
   }
 
-  s"docker rmi -f dockerep-0.mtl.mnubo.com/mysqldb-mgr:1.0.0-SNAPSHOT".!
-  s"docker rmi -f dockerep-0.mtl.mnubo.com/mysqldb-mgr:latest".!
-  s"docker rmi -f dockerep-0.mtl.mnubo.com/test-mysqldb:0002".!
-  s"docker rmi -f dockerep-0.mtl.mnubo.com/test-mysqldb:0001".!
-  s"docker rmi -f dockerep-0.mtl.mnubo.com/test-mysqldb:latest".!
+  s"docker rmi -f mysqldb-mgr:1.0.0-SNAPSHOT".!
+  s"docker rmi -f mysqldb-mgr:latest".!
+  s"docker rmi -f test-mysqldb:0002".!
+  s"docker rmi -f test-mysqldb:0001".!
+  s"docker rmi -f test-mysqldb:latest".!
 }

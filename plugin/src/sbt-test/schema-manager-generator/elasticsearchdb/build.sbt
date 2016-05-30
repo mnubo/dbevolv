@@ -1,4 +1,4 @@
-enablePlugins(DbSchemasPlugin)
+enablePlugins(DbevolvPlugin)
 
 import java.net.ServerSocket
 import org.apache.commons.io.FileUtils
@@ -17,6 +17,8 @@ import scala.util.Try
 import scala.util.control.NonFatal
 import sys.process.{Process => SProcess, ProcessLogger => SProcessLogger}
 import collection.JavaConverters._
+
+resolvers += "Mnubo release repository" at "http://artifactory.mtl.mnubo.com:8081/artifactory/libs-release-local/" // Temporary while removing all of our deps
 
 TaskKey[Unit]("check-mgr") := {
   val logger = streams.value.log
@@ -42,10 +44,10 @@ TaskKey[Unit]("check-mgr") := {
   case class Elasticsearch() {
     val port = using(new ServerSocket(0))(_.getLocalPort)
 
-    runShell("docker pull dockerep-0.mtl.mnubo.com/test-elasticsearch:1.5.2")
+    runShell("docker pull elasticsearch:1.5")
 
     val elasticsearchContainerId =
-      runShellAndListen(s"docker run -d -p $port:9300 dockerep-0.mtl.mnubo.com/test-elasticsearch:1.5.2")
+      runShellAndListen(s"docker run -d -p $port:9300 elasticsearch:1.5")
 
     logger.info(s"ES container id: $elasticsearchContainerId")
 
@@ -106,7 +108,7 @@ TaskKey[Unit]("check-mgr") := {
     def close(): Unit = {
       client.close()
       s"docker stop $elasticsearchContainerId".!
-      s"docker rm $elasticsearchContainerId".!
+      s"docker rm -v $elasticsearchContainerId".!
     }
   }
 
@@ -123,7 +125,7 @@ TaskKey[Unit]("check-mgr") := {
     import es._
 
     val mgrCmd =
-      s"docker run -i --rm --link $elasticsearchContainerId:elasticsearch -v $userHome/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $dockerExec:/bin/docker -e ENV=integration dockerep-0.mtl.mnubo.com/elasticsearchdb-mgr:1.0.0-SNAPSHOT"
+      s"docker run -i --rm --link $elasticsearchContainerId:elasticsearch -v $userHome/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $dockerExec:/bin/docker -v $userHome/.docker/config.json:/root/.docker/config.json:ro -e ENV=integration elasticsearchdb-mgr:1.0.0-SNAPSHOT"
 
     // Run the schema manager to migrate the db to latest version
     assert(
@@ -250,9 +252,9 @@ TaskKey[Unit]("check-mgr") := {
 
   }
 
-  s"docker rmi -f dockerep-0.mtl.mnubo.com/elasticsearchdb-mgr:1.0.0-SNAPSHOT".!
-  s"docker rmi -f dockerep-0.mtl.mnubo.com/elasticsearchdb-mgr:latest".!
-  s"docker rmi -f dockerep-0.mtl.mnubo.com/test-elasticsearchdb:0002".!
-  s"docker rmi -f dockerep-0.mtl.mnubo.com/test-elasticsearchdb:0001".!
-  s"docker rmi -f dockerep-0.mtl.mnubo.com/test-elasticsearchdb:latest".!
+  s"docker rmi -f elasticsearchdb-mgr:1.0.0-SNAPSHOT".!
+  s"docker rmi -f elasticsearchdb-mgr:latest".!
+  s"docker rmi -f test-elasticsearchdb:0002".!
+  s"docker rmi -f test-elasticsearchdb:0001".!
+  s"docker rmi -f test-elasticsearchdb:latest".!
 }

@@ -2,13 +2,14 @@
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 **Table of Contents**  *generated with [DocToc](https://github.com/thlorenz/doctoc)*
 
-- [dbschemas](#dbschemas)
-  - [Supported databases](#supported-databases)
+- [dbevolv](#dbevolv)
+  - [Supported data stores](#supported-data-stores)
 - [Usage](#usage)
   - [Writing database migrations](#writing-database-migrations)
   - [Building more complex upgrade / downgrade scripts](#building-more-complex-upgrade--downgrade-scripts)
-  - [Rebasing a database](#rebasing-a-database)
   - [Migration design guidelines](#migration-design-guidelines)
+  - [Rebasing a database](#rebasing-a-database)
+  - [Getting the list of tenants](#getting-the-list-of-tenants)
   - [Computing the database name / schema name / index name / keyspace (depending on underlying db kind)](#computing-the-database-name--schema-name--index-name--keyspace-depending-on-underlying-db-kind)
   - [Testing your newly added script locally before committing](#testing-your-newly-added-script-locally-before-committing)
   - [Project examples](#project-examples)
@@ -22,13 +23,13 @@
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-dbschemas
-=========
+dbevolv
+=======
 
 Allows to upgrade / downgrade our database instances to a particular version. It supports multiple logical databases in the same physical database/keyspace.
 
-Supported databases
--------------------
+Supported data stores
+---------------------
 
 * cassandra
 * elasticsearch
@@ -54,10 +55,10 @@ Create a git repo with the following structure:
                /0040/
                /0050/
 
-The `db.conf` should contain the description of the database schema. You must also specify the connection strings for all the environments. For example:
+The `db.conf` should contain the description of the data store schema. You must also specify the connection strings for all the environments. For example:
 
     database_kind = cassandra
-    hasInstanceForEachNamespace = false
+    hasInstanceForEachTenant = false
     schema_name = reverse_geo
     app_name = reverse_geo-schema-manager
     create_database_statement = "CREATE KEYSPACE @@DATABASE_NAME@@ WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }"
@@ -90,15 +91,17 @@ The `db.conf` should contain the description of the database schema. You must al
 
 Here are the different parameters you can configure:
 
-* **database_kind**: which kind of database we are targeting. See "Supported databases" for valid values.
-* **hasInstanceForEachNamespace**: whether this database have a distinct instance for each of the namespaces. Default is 'false' (the database is a 'global' one).
+* **database_kind**: which kind of data store we are targeting. See "Supported data stores" for valid values.
+* **hasInstanceForEachTenant**: whether this database have a distinct instance for each of your tenants. Default is 'false' (the database is a 'global' one).
+* **tenant_repository_class**: when hasInstanceForEachTenant is true, you must supply a tenant repository. See 'Getting the list of tenants' below.
 * **schema_name**: the logical name of this database schema.
 * **app_name**: the name of this schema manager (required by [app-util](http://git-lab1.mtl.mnubo.com/mnubo/app-util/tree/master)).
-* **schema_version**: the migration version the given environment is supposed to be at. If not specified, all migrations will be applied. Specifying it is mandatory for dev, qa, preprod, sandbox, and prod. 
+* **schema_version**: the migration version the given environment is supposed to be at. If not specified, all migrations will be applied. Specifying it is mandatory for dev, qa, preprod, sandbox, and prod.
+* **docker_namespace**: optional. The namespace under which the various docker images will be tagged. Ex: if set to myregistry, the docker images will be tagged as myregistry/xyz.
 * **host**: the host or hosts name(s) to connect to.
 * **port**: the port to connect to. Leave empty for default port.
-* **username**: the username to use to connect to the database instance. Certain kind of databases like Cassandra don't need that.
-* **password**: the password to use to connect to the database instance. Certain kind of databases like Cassandra don't need that.
+* **username**: the username to use to connect to the data store instance. Certain kind of data stores like Cassandra don't need that.
+* **password**: the password to use to connect to the data store instance. Certain kind of data stores like Cassandra don't need that.
 * **create_database_statement**: The CQL / SQL / HQL statement to use if the database does not even exists when running the schema manager. The `@@DATABASE_NAME@@` place holder will automatically be replaced by the actual schema / keyspace name (see also "Computing the database name / schema name / index name / keyspace" below).
 * **name_provider_class**: See "Computing the database name / schema name / index name / keyspace" below.
 * **shard_number**: for Elasticsearch, how many shards the index should have.
@@ -107,9 +110,11 @@ Here are the different parameters you can configure:
 
 Note: most of the settings can have a default value at the top, but can be overriden for a given environment. See for example `create_database_statement` in the above example.
 
-The `build.sbt` file should activate the `dbschemas` SBT plugin that will take care of everything:
+The `build.sbt` file should activate the `Dbevolv` SBT plugin that will take care of everything:
 
-    enablePlugins(DbSchemasPlugin)
+    enablePlugins(DbevolvPlugin)
+
+    organization := "your organization name"
 
 The `version.sbt` file should contain the initial version of this particular schema manager. Always 1.0.0 for new project, this will be automatically managed in Jenkins after each build:
 
@@ -117,21 +122,15 @@ The `version.sbt` file should contain the initial version of this particular sch
 
 The `build.properties` file should contain which SBT version to use:
 
-    sbt.version=0.13.8
+    sbt.version=0.13.11
 
 The `plugins.sbt` should point to this plugin on Artifactory (the funky piece of code make sure to always use the latest version available from Artifactory):
 
-    resolvers += "Mnubo release repository" at "http://artifactory.mtl.mnubo.com:8081/artifactory/libs-release-local/"
-    
-    val latestPluginVersion = Using.urlInputStream(new URL("http://artifactory.mtl.mnubo.com:8081/artifactory/libs-release-local/com/mnubo/dbschemas_2.10/maven-metadata.xml")) { stream =>
-      """<latest>([\d\.]+)</latest>""".r.findFirstMatchIn(IO.readStream(stream)).get.group(1)
-    }
-    
-    addSbtPlugin("com.mnubo" % "dbschemas-sbt-plugin" % latestPluginVersion)
+    addSbtPlugin("com.mnubo" % "dbevolv-sbt-plugin" % "1.0.0")
 
-The directories names in `/migrations` constitute the migration versions. Migrations will be applied in the lexical order of those directory names. Ex: when asking dbschema to upgrade to version '0002' in the above example, '0001' will be executed first, then '0002'.
+The directories names in `/migrations` constitute the migration versions. Migrations will be applied in the lexical order of those directory names. Ex: when asking dbevolv to upgrade to version '0002' in the above example, '0001' will be executed first, then '0002'.
 
-Migration directories must contain 2 files named `upgrade.???` and `downgrade.???`. The extension depend on the database type. For example, for Cassandra:
+Migration directories must contain 2 files named `upgrade.???` and `downgrade.???`. The extension depend on the data store type. For example, for Cassandra:
 
     /migrations/0001/upgrade.cql
                     /downgrade.cql
@@ -151,7 +150,7 @@ If you need complex logic, you can create a custom Java / Scala class and refere
 
 Your class should be located at the usual Maven/SBT location. In this example: src/main/scala/com/mnubo/platform_cassandra/UpgradeFields.java. It must have a constructor with no parameters, and an execute method taking a 2 parameters.
 
-   1) the connection to the database. Exact type of the connection depends on the database type.
+   1) the connection to the database. Exact type of the connection depends on the data store type.
    2) the name of the database (postgres) / schema (mysql) / keyspace (cassandra) / index (elasticsearch)
 
 Example:
@@ -183,13 +182,13 @@ Rebasing a database
 
 Sometimes, especially when a database came through a lot of migrations, you are in a situation where lots of databases and columns are created in earlier migrations to be removed in later migrations, making the database quite long to create. This is especially problematic in multi-tenant databases that gets created for a new tenant. It can also happen that there is too many migrations, and that makes the build pretty long.
 
-A solution to that problem is to 'rebase' the migrations. It means taking the result of all of those migrations, and make a single script having the same end result as them. DBSchemas helps you do that in a safe way.
+A solution to that problem is to 'rebase' the migrations. It means taking the result of all of those migrations, and make a single script having the same end result as them. dbevolv helps you do that in a safe way.
 
 Begin by creating a new migration directory, with a new version number. Put a single script `rebase.*ql` in it. Do not create a `rollback.*ql` file, rolling back a rebase migration is not supported. Ex:
 
     /migrations/2000/rebase.cql
     
-DBSchemas does not support the automatic filling of that script right now. So you will have to use the existing database tools to forge it for you from the latest test image (see below).
+dbevolv does not support the automatic filling of that script right now. So you will have to use the existing data store tools to forge it for you from the latest test image (see below).
 
 As always, you can test locally that your rebase script is sound by running:
 
@@ -205,13 +204,51 @@ Rebase migrations are treated a bit differently than the others. Lets take an ex
     0200 (rebase)
     0210
 
-* first, DBSchemas will make sure that the database resulting from a rebase script is the same as the one resulting from all the previous migrations.
+* first, dbevolv will make sure that the database resulting from a rebase script is the same as the one resulting from all the previous migrations.
 * your rebase migrations do not need to be idempotent.
 * when applied on an existing database (version  <= `0030` in our example), the rebase scripts will not be applied, but all metadata about previous migrations up to the rebase will be erased. This is done for each rebase encountered along the way. For example, if the database had these migrations installed before: `[0010, 0020]`, then after running the schema manager it would have `[0200, 0210]`.
-* when applied on a new database, DBSchemas will start at the latest rebase, and only apply further migrations. In our example, it would apply only `0200` and `0210` because `200` is the latest migration of type `rebase`.
+* when applied on a new database, dbevolv will start at the latest rebase, and only apply further migrations. In our example, it would apply only `0200` and `0210` because `200` is the latest migration of type `rebase`.
 * **WARNING!**: once rebased, you cannot go back to previous migrations anymore. Which means that rolling back a database will only bring you to the previous rebase, even if you asked to rollback to a previous migration. For example, if a database is at version `0210` in our example, rolling back to `0030` will actually only bring the database to `0200`.
 
 **Cleanup**: after a given `rebase` migration has been applied to all environments, you can safely delete the previous migration directories from the build.
+
+Getting the list of tenants
+---------------------------
+
+In order for dbevolv to know for which tenants to create and maintain a database instance, you need to provide a class implementing TenantRepository. You can place the class in `src/main/java/...` or `src/main/scala/...`, or just reference the jar in the dependencies in your `build.sbt`:
+
+    libraryDependencies += "mycompany" % "mytenantrepo" % "1.0.0"
+
+The constructor must have one and one argument only, which is the typesafe config loaded from the `db.conf` file. This allows you to configure your class easily.
+
+    package mycompany.tenants
+
+    import com.mnubo.dbevolv._
+
+    class MyTenantRepository(config: Config) extends TenantRepository {
+      // Configuration specific to this particular repository
+      private val host = config.getString("tenantdb.host")
+      private val port = config.getInt("tenantdb.port")
+      private val dbConnectionPool = ...
+
+      override def fetchTenants = {
+        using(dbConnectionPool) { connection =>
+          // Pseudo JDBC like API
+          connection
+            .execute("SELECT customer_name FROM customer")
+            .map(row => row.getString("customer_name"))
+            .sorted
+        }
+      }
+    }
+
+Then, you could add your repository specific configuration in the `db.conf` file. In the previous fictitious example, it would look like:
+
+    hasInstanceForEachTenant = true
+    tenant_repository_class = "mycompany.tenants.MyTenantRepository"
+    tenantdb.host = "mydbhost"
+    tenantdb.port = 3306
+
 
 Computing the database name / schema name / index name / keyspace (depending on underlying db kind)
 ---------------------------------------------------------------------------------------------------
@@ -219,9 +256,9 @@ Computing the database name / schema name / index name / keyspace (depending on 
 The actual database / keyspace name will be computed the following way:
 
 * **for global databases**: the logical schema_name will be used.
-    * Ex: reverse_geo
-* **for databases per namespace**: the name will be suffixed with the customer's namespace.
-    * Ex: ingestion_connectedevice
+    * Ex: myappdb
+* **for databases per tenant**: the name will be suffixed with the customer's / tenant name.
+    * Ex: myappdb_mycustomer
 
 Sometimes, this is not suitable. For example, QA keyspace names might be totally custom. Or historical keyspaces might be jammed together. For all these use cases, you can customize the keyspace name provider. For example:
 
@@ -230,8 +267,8 @@ Sometimes, this is not suitable. For example, QA keyspace names might be totally
     class LegacyDatabaseNameProvider extends DatabaseNameProvider {
       private val default = new DefaultDatabaseNameProvider
 
-      def computeDatabaseName(schemaLogicalName: String, namespace: Option[String]) = 
-        namespace
+      def computeDatabaseName(schemaLogicalName: String, tenant: Option[String]) =
+        tenant
     }
 
 And then, in your `db.conf` file, you need to override the default database name provider in the relevant environments:
@@ -261,17 +298,17 @@ Upgrading / downgrading a database
 
 To get usage:
 
-    docker run -it --rm -e ENV=<environment name> dockerep-0.mtl.mnubo.com/<schema_name>-mgr:latest --help
+    docker run -it --rm -e ENV=<environment name> <schema_name>-mgr:latest --help
 
 This should result to something like:
 
-    Upgrades / downgrades the enrichment database to the given version for all the namespaces.
-    Usage: docker run -it --rm -v $HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $(which docker):/bin/docker -e ENV=<environment name> dockerep-0.mtl.mnubo.com/enrichment-mgr:latest [options]
+    Upgrades / downgrades the enrichment database to the given version for all the tenants.
+    Usage: docker run -it --rm -v $HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $(which docker):/bin/docker -e ENV=<environment name> enrichment-mgr:latest [options]
 
       -v <value> | --version <value>
             The version you want to upgrade / downgrade to. If not specified, will upgrade to latest version.
-      -n <value> | --namespace <value>
-            The namespace you want to upgrade / downgrade to. If not specified, will upagrade all namespaces.
+      -t <value> | --tenant <value>
+            The tenant you want to upgrade / downgrade to. If not specified, will upgrade all tenants.
       --history
             Display history of database migrations instead of migrating the database.
       --help
@@ -281,13 +318,13 @@ This should result to something like:
       the volume mounts are only necessary when upgrading a schema. You can omit them when downgrading, getting help, or display the history.
 
     Example:
-      docker run -it --rm -v $HOME/.docker/config.json:/root/.docker/config.json:ro -v $HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $(which docker):/bin/docker -e ENV=dev dockerep-0.mtl.mnubo.com/enrichment:latest --version 0004
+      docker run -it --rm -v $HOME/.docker/config.json:/root/.docker/config.json:ro -v $HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $(which docker):/bin/docker -e ENV=dev enrichment:latest --version 0004
       
-Note: the help message is slightly different for the databases that don't have one instance by namespace (global databases).
+Note: the help message is slightly different for the databases that don't have one instance by tenant (global databases).
 
 ### Behaviour
 
-The schema manager will upgrade one namespace at a time. For each namespace, it will apply (or downgrade) all the necessary migration to reach the target version. If one of the namespaces upgrade fail, it stopped. It is recommended to rollback all namespaces to the origin version immediately, so the faulty migration could be fixed and reapplied to all of the migrations. Since migrations are checksumed, you cannot have a system with different flavours of the same migrations. This would make any subsequent upgrades or downgrades to fail immediately.
+The schema manager will upgrade one tenant at a time. For each tenant, it will apply (or downgrade) all the necessary migration to reach the target version. If one of the tenants upgrade fail, it stopped. It is recommended to rollback all tenants to the origin version immediately, so the faulty migration could be fixed and reapplied to all of the migrations. Since migrations are checksumed, you cannot have a system with different flavours of the same migrations. This would make any subsequent upgrades or downgrades to fail immediately.
 
 The schema manager will also perform some validation before starting to upgrade. It will check that the schema of the target instance match the expected schema (tables, columns, types).
 
@@ -295,11 +332,11 @@ The schema manager will also perform some validation before starting to upgrade.
 
 If the database has been corrupted so that smooth migration is impossible, you will see a message explaining the issue(s) encountered and how to fix it:
 
-    18:10:04.988 [main] ERROR com.mnubo.dbschemas.Table - Table odainterpolationparams does not contain a column objectmodel (type = text)
-    18:10:04.989 [main] ERROR com.mnubo.dbschemas.Table - Table odainterpolationparams does not contain a column hdfs_import_period_sec (type = double)
+    18:10:04.988 [main] ERROR com.mnubo.dbevolv.Table - Table mytable does not contain a column somecolumn (type = text)
+    18:10:04.989 [main] ERROR com.mnubo.dbevolv.Table - Table mytable does not contain a column someothercolumn (type = double)
     Exception in thread "main" java.lang.Exception: Oops, it seems the target schema of orb3a1 is not what it should be... Please call your dearest developer for helping de-corrupting the database.
-            at com.mnubo.dbschemas.DatabaseMigrator$.upgrade(DatabaseMigrator.scala:91)
-            at com.mnubo.dbschemas.DatabaseMigrator$.migrate(DatabaseMigrator.scala:69)
+            at com.mnubo.dbevolv.DatabaseMigrator$.upgrade(DatabaseMigrator.scala:91)
+            at com.mnubo.dbevolv.DatabaseMigrator$.migrate(DatabaseMigrator.scala:69)
             ...
 
 In this particular example, to repair the database, you need to create the `objectmodel` and `hdfs_import_period_sec` columns in the  `odainterpolationparams` table. You should then be able to restart the upgrade.
@@ -307,13 +344,13 @@ In this particular example, to repair the database, you need to create the `obje
 Inspecting the migrations inside a schema manager
 -------------------------------------------------
 
-    docker run -it --rm --entrypoint=/bin/bash dockerep-0.mtl.mnubo.com/<schema_name>-mgr:latest
+    docker run -it --rm --entrypoint=/bin/bash <schema_name>-mgr:latest
     ls -la /app/migrations
 
 Getting the list of already installed migrations in a database
 --------------------------------------------------------------
 
-    docker run -it --rm -e ENV=<environment name> dockerep-0.mtl.mnubo.com/<schema_name>-mgr:latest --history
+    docker run -it --rm -e ENV=<environment name> <schema_name>-mgr:latest --history
     
 Example output in dev on the enrichment Cassandra database:
 
@@ -348,11 +385,11 @@ Using a test instance in automated tests
 
 Each time a new migration is pushed to Gitlab, Jenkins will generate a test database instance with all the tables up to date. To start it:
 
-    docker run -dt -p <database kind standard port>:<desired_port> dockerep-0.mtl.mnubo.com/test-<schema_name>:latest
+    docker run -dt -p <database kind standard port>:<desired_port> test-<schema_name>:latest
 
 For example, with the Cassandra reverse_geo database:
 
-    docker run -dt -p 40155:9042 dockerep-0.mtl.mnubo.com/test-reverse_geo:latest
+    docker run -dt -p 40155:9042 test-reverse_geo:latest
 
 This will start a Cassandra instance, with a `reverse_geo` keyspace (the logical database name) containing all the reverse_geo tables up to date. You can point your tests to use the 40155 port on the DOCKER_HOST in order to create a session.
 
@@ -361,12 +398,12 @@ Development
 
 The schema manager builder is actually a SBT plugin. To test the sbt plugin, we are using the scripted sbt plugin (yes, a pluging to test a plugin...). To launch the (quite long) tests, do:
 
-    sbt tool/publishLocal scripted
+    sbt library/publishLocal scripted
 
 And go fetch a cup of coffee, you'll have time.
 
-If you want to runs tests only on one kind of database, specify the test build directory you want to fire (relative to src/sbt-test:
+If you want to runs tests only on one kind of data store, specify the test build directory you want to fire (relative to src/sbt-test:
 
-    sbt tool/publishLocal "scripted schema-manager-generator/cassandradb"
+    sbt library/publishLocal "scripted schema-manager-generator/cassandradb"
 
 Documentation for the scripted plugin is not the best. You can find a tutorial here: [Testing SBT plugins](http://eed3si9n.com/testing-sbt-plugins)

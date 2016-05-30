@@ -1,4 +1,4 @@
-enablePlugins(DbSchemasPlugin)
+enablePlugins(DbevolvPlugin)
 
 import java.net.ServerSocket
 import org.apache.commons.io.FileUtils
@@ -16,9 +16,11 @@ import collection.JavaConverters._
 import sbtdocker.staging.DefaultDockerfileProcessor
 import sbtdocker.{DockerKeys, DockerBuild}
 
+resolvers += "Mnubo release repository" at "http://artifactory.mtl.mnubo.com:8081/artifactory/libs-release-local/" // Temporary while removing all of our deps
+
 TaskKey[Unit]("check-mgr") := {
   val logger = streams.value.log
-  val dockerCmd = (DockerKeys.dockerCmd in docker).value
+  val dockerPath = (DockerKeys.dockerPath in docker).value
   val buildOptions = (DockerKeys.buildOptions in docker).value
   val stageDir = (target in docker).value
   val dockerfile = (DockerKeys.dockerfile in docker).value
@@ -26,7 +28,7 @@ TaskKey[Unit]("check-mgr") := {
   val pwd = new File(".").getCanonicalPath
 
   def rebuild(): Unit =
-    DockerBuild(dockerfile, DefaultDockerfileProcessor, imageNames, buildOptions, stageDir, dockerCmd, logger)
+    DockerBuild(dockerfile, DefaultDockerfileProcessor, imageNames, buildOptions, stageDir, dockerPath, logger)
 
   def runShellAndListen(cmd: String) = {
     val out = new StringBuilder
@@ -46,10 +48,10 @@ TaskKey[Unit]("check-mgr") := {
   case class Cassandra() {
     val port = using(new ServerSocket(0))(_.getLocalPort)
 
-    runShell("docker pull dockerep-0.mtl.mnubo.com/test-cassandra:2.1.11")
+    runShell("docker pull cassandra:2.1")
 
     val cassandraContainerId =
-      runShellAndListen(s"docker run -d -p $port:9042 dockerep-0.mtl.mnubo.com/test-cassandra:2.1.11")
+      runShellAndListen(s"docker run -d -p $port:9042 cassandra:2.1")
 
     private def isStarted =
       runShellAndListen(s"docker logs $cassandraContainerId")
@@ -89,7 +91,7 @@ TaskKey[Unit]("check-mgr") := {
     def close(): Unit = {
       session.close()
       s"docker stop $cassandraContainerId".!
-      s"docker rm $cassandraContainerId".!
+      s"docker rm -v $cassandraContainerId".!
     }
   }
 
@@ -106,7 +108,7 @@ TaskKey[Unit]("check-mgr") := {
     import cass._
 
     val mgrCmd =
-      s"docker run -i --rm --link $cassandraContainerId:cassandra -v $userHome/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $dockerExec:/bin/docker -e ENV=integration dockerep-0.mtl.mnubo.com/cassandradb-mgr:1.0.0-SNAPSHOT"
+      s"docker run -i --rm --link $cassandraContainerId:cassandra -v $userHome/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $dockerExec:/bin/docker -v $userHome/.docker/config.json:/root/.docker/config.json:ro -e ENV=integration cassandradb-mgr:1.0.0-SNAPSHOT"
 
     // Run the schema manager to migrate the db to latest version
     assert(
@@ -246,12 +248,12 @@ TaskKey[Unit]("check-mgr") := {
 
   }
 
-  s"docker rmi -f dockerep-0.mtl.mnubo.com/cassandradb-mgr:1.0.0-SNAPSHOT".!
-  s"docker rmi -f dockerep-0.mtl.mnubo.com/cassandradb-mgr:latest".!
-  s"docker rmi -f dockerep-0.mtl.mnubo.com/test-cassandradb:0005".!
-  s"docker rmi -f dockerep-0.mtl.mnubo.com/test-cassandradb:0004".!
-  s"docker rmi -f dockerep-0.mtl.mnubo.com/test-cassandradb:0003".!
-  s"docker rmi -f dockerep-0.mtl.mnubo.com/test-cassandradb:0002".!
-  s"docker rmi -f dockerep-0.mtl.mnubo.com/test-cassandradb:0001".!
-  s"docker rmi -f dockerep-0.mtl.mnubo.com/test-cassandradb:latest".!
+  s"docker rmi -f cassandradb-mgr:1.0.0-SNAPSHOT".!
+  s"docker rmi -f cassandradb-mgr:latest".!
+  s"docker rmi -f test-cassandradb:0005".!
+  s"docker rmi -f test-cassandradb:0004".!
+  s"docker rmi -f test-cassandradb:0003".!
+  s"docker rmi -f test-cassandradb:0002".!
+  s"docker rmi -f test-cassandradb:0001".!
+  s"docker rmi -f test-cassandradb:latest".!
 }
