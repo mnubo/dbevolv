@@ -303,7 +303,7 @@ To get usage:
 This should result to something like:
 
     Upgrades / downgrades the mydatabase database to the given version for all the tenants.
-    Usage: docker run -it --rm -v $HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $(which docker):/bin/docker -e ENV=<environment name> mydatabase-mgr:latest [options]
+    Usage: docker run -it --rm -v $HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/var/run/docker.sock -v $(which docker):/bin/docker -e ENV=<environment name> mydatabase-mgr:latest [options]
 
       -v <value> | --version <value>
             The version you want to upgrade / downgrade to. If not specified, will upgrade to latest version.
@@ -318,7 +318,7 @@ This should result to something like:
       the volume mounts are only necessary when upgrading a schema. You can omit them when downgrading, getting help, or display the history.
 
     Example:
-      docker run -it --rm -v $HOME/.docker/config.json:/root/.docker/config.json:ro -v $HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $(which docker):/bin/docker -e ENV=dev mydatabase:latest --version 0004
+      docker run -it --rm -v $HOME/.docker/config.json:/root/.docker/config.json:ro -v $HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/var/run/docker.sock -v $(which docker):/bin/docker -e ENV=dev mydatabase:latest --version 0004
       
 Note: the help message is slightly different for the databases that don't have one instance by tenant (global databases).
 

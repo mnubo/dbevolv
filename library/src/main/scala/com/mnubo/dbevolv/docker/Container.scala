@@ -27,7 +27,8 @@ class Container(imageName: String,
     log.info(s"The image $imageName already exists locally. Not pulling.")
 
 
-  val containerId = execShellAndRead(s"docker run -dt -v ${Docker.userHome}/.docker/config.json:/root/.docker/config.json:ro -v ${Docker.userHome}/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v ${Docker.dockerExecutableLocation}:/bin/docker -P $options$imageName")
+  val containerId = execShellAndRead(s"docker run -dt -v ${Docker.userHome}/.docker/config.json:/root/.docker/config.json:ro -v ${Docker.userHome}/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/var/run/docker.sock -v ${Docker.dockerExecutableLocation}:/bin/docker -P $options$imageName")
+  //require(containerId.matches(Container.IdRegex), s"The container did not start correctly: '$containerId'\n")
 
   waitStarted(isStarted)
 
@@ -93,6 +94,7 @@ class Container(imageName: String,
 }
 
 object Container extends Logging {
+  private val IdRegex = "[a-f0-9]+"
   private val FiveMinMaxWaitTimeForStartInMS = 5 * 60 * 1000L
 
   private def execShell(cmd: String) = {

@@ -94,7 +94,7 @@ TaskKey[Unit]("check-mgr") := {
     import ms._
 
     val mgrCmd =
-      s"docker run -i --rm --link $mysqlContainerId:mysql -v $userHome/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $dockerExec:/bin/docker -v $userHome/.docker/config.json:/root/.docker/config.json:ro -e ENV=integration mysqldb-mgr:1.0.0-SNAPSHOT"
+      s"docker run -i --rm --link $mysqlContainerId:mysql -v $userHome/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/var/run/docker.sock -v $dockerExec:/bin/docker -v $userHome/.docker/config.json:/root/.docker/config.json:ro -e ENV=integration mysqldb-mgr:1.0.0-SNAPSHOT"
 
     // Run the schema manager to migrate the db to latest version
     assert(
