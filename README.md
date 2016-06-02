@@ -92,8 +92,8 @@ The `db.conf` should contain the description of the data store schema. You must 
 Here are the different parameters you can configure:
 
 * **database_kind**: which kind of data store we are targeting. See "Supported data stores" for valid values.
-* **hasInstanceForEachTenant**: whether this database have a distinct instance for each of your tenants. Default is 'false' (the database is a 'global' one).
-* **tenant_repository_class**: when hasInstanceForEachTenant is true, you must supply a tenant repository. See 'Getting the list of tenants' below.
+* **has_instance_for_each_tenant**: whether this database have a distinct instance for each of your tenants. Default is 'false' (the database is a 'global' one).
+* **tenant_repository_class**: when `has_instance_for_each_tenant` is true, you must supply a tenant repository. See 'Getting the list of tenants' below.
 * **schema_name**: the logical name of this database schema.
 * **app_name**: the name of this schema manager (required by [app-util](http://git-lab1.mtl.mnubo.com/mnubo/app-util/tree/master)).
 * **schema_version**: the migration version the given environment is supposed to be at. If not specified, all migrations will be applied. Specifying it is mandatory for dev, qa, preprod, sandbox, and prod.

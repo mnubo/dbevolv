@@ -26,7 +26,7 @@ object Dbevolv extends App with Logging {
   private val isSensitiveEnvironment =
     Set(Dev, Qa, Sandbox, Prod, QaSandbox).contains(env)
   private val hasInstanceForEachTenant =
-    config.getBoolean("hasInstanceForEachTenant")
+    config.getBoolean("has_instance_for_each_tenant")
   private val schemaName =
     config.getString("schema_name")
 

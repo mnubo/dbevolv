@@ -37,7 +37,7 @@ object TestDatabaseBuilder extends Logging {
       case _ => None
     }
 
-    val hasInstanceForEachTenant = config.getBoolean("hasInstanceForEachTenant")
+    val hasInstanceForEachTenant = config.getBoolean("has_instance_for_each_tenant")
     val imageName = s"test-$schemaName"
     val repositoryName = dockerNamespace.map(ns => s"$ns/$imageName").getOrElse(imageName)
     val db = Database.databases(dbKind)
