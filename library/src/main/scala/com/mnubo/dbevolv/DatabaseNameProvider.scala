@@ -10,14 +10,14 @@ trait DatabaseNameProvider {
 class DefaultDatabaseNameProvider extends DatabaseNameProvider {
   def computeDatabaseName(schemaLogicalName: String, tenant: Option[String]) = tenant match {
     case None => schemaLogicalName
-    case Some(ns) => s"${schemaLogicalName}_$ns"
+    case Some(tenantId) => s"${schemaLogicalName}_$tenantId"
   }
 }
 
 class LegacyDatabaseNameProvider extends DatabaseNameProvider {
   def computeDatabaseName(schemaLogicalName: String, tenant: Option[String]) = tenant match {
     case None => schemaLogicalName
-    case Some(ns) => ns
+    case Some(tenantId) => tenantId
   }
 }
 
@@ -26,7 +26,7 @@ class ZoneAwareDatabaseNameProvider extends DatabaseNameProvider {
   private val mzConfig = MnuboConfiguration.loadMultiZoneConfig(env = Option(System.getenv("ENV")).getOrElse(defaultEnv), configDirectory = ".", doConfigureLogback = false)
   def computeDatabaseName(schemaLogicalName: String, tenant: Option[String]) = tenant match {
     case None => s"${mzConfig.currentZone}_$schemaLogicalName"
-    case Some(ns) => s"${mzConfig.currentZone}_${schemaLogicalName}_$ns"
+    case Some(tenantId) => s"${mzConfig.currentZone}_${schemaLogicalName}_$tenantId"
   }
 }
 

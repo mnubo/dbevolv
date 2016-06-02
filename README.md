@@ -302,8 +302,8 @@ To get usage:
 
 This should result to something like:
 
-    Upgrades / downgrades the enrichment database to the given version for all the tenants.
-    Usage: docker run -it --rm -v $HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $(which docker):/bin/docker -e ENV=<environment name> enrichment-mgr:latest [options]
+    Upgrades / downgrades the mydatabase database to the given version for all the tenants.
+    Usage: docker run -it --rm -v $HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $(which docker):/bin/docker -e ENV=<environment name> mydatabase-mgr:latest [options]
 
       -v <value> | --version <value>
             The version you want to upgrade / downgrade to. If not specified, will upgrade to latest version.
@@ -318,7 +318,7 @@ This should result to something like:
       the volume mounts are only necessary when upgrading a schema. You can omit them when downgrading, getting help, or display the history.
 
     Example:
-      docker run -it --rm -v $HOME/.docker/config.json:/root/.docker/config.json:ro -v $HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $(which docker):/bin/docker -e ENV=dev enrichment:latest --version 0004
+      docker run -it --rm -v $HOME/.docker/config.json:/root/.docker/config.json:ro -v $HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/run/docker.sock -v $(which docker):/bin/docker -e ENV=dev mydatabase:latest --version 0004
       
 Note: the help message is slightly different for the databases that don't have one instance by tenant (global databases).
 
@@ -352,29 +352,19 @@ Getting the list of already installed migrations in a database
 
     docker run -it --rm -e ENV=<environment name> <schema_name>-mgr:latest --history
     
-Example output in dev on the enrichment Cassandra database:
+Example output in dev on the mydatabase Cassandra database:
 
-    History of sparkdemoconnectedcars @ vm21-hulk-priv,vm22-hulk-priv,vm23-hulk-priv:
+    History of myfirstcustomer @ host1,host2,host3:
     
              Version                       Date                           Checksum
                 0010   2015-05-11T00:00:00.000Z   555f57888cf9bea47e97bf6c9b7e9d3f
                 0020   2015-05-11T00:00:00.000Z   c123fc10e716daf6275dfe67efa1efac
-    History of sparkdemowearables @ vm21-hulk-priv,vm22-hulk-priv,vm23-hulk-priv:
+    History of mysecondcustomer @ host1,host2,host3:
     
              Version                       Date                           Checksum
                 0010   2015-05-11T00:00:00.000Z   555f57888cf9bea47e97bf6c9b7e9d3f
                 0020   2015-05-11T00:00:00.000Z   c123fc10e716daf6275dfe67efa1efac
-    History of sparkdemoagriculture @ vm21-hulk-priv,vm22-hulk-priv,vm23-hulk-priv:
-    
-             Version                       Date                           Checksum
-                0010   2015-05-11T00:00:00.000Z   555f57888cf9bea47e97bf6c9b7e9d3f
-                0020   2015-05-11T00:00:00.000Z   c123fc10e716daf6275dfe67efa1efac
-    History of connectedevice @ vm21-hulk-priv,vm22-hulk-priv,vm23-hulk-priv:
-    
-             Version                       Date                           Checksum
-                0010   2015-05-11T00:00:00.000Z   555f57888cf9bea47e97bf6c9b7e9d3f
-                0020   2015-05-11T00:00:00.000Z   c123fc10e716daf6275dfe67efa1efac
-    History of julconnectedevice @ vm21-hulk-priv,vm22-hulk-priv,vm23-hulk-priv:
+    History of mythirdcustomer @ host1,host2,host3:
     
              Version                       Date                           Checksum
                 0010   2015-05-11T00:00:00.000Z   555f57888cf9bea47e97bf6c9b7e9d3f

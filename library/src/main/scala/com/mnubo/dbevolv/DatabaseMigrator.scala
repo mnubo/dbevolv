@@ -48,8 +48,8 @@ object DatabaseMigrator extends Logging {
    * (002, 003)
    * (003)
    * (007, 008)
- *
- * The following installed version are invalid because they have 'skipped' some migrations:
+   *
+   * The following installed version are invalid because they have 'skipped' some migrations:
    *
    * (001, 003)
    * (006, 008)
