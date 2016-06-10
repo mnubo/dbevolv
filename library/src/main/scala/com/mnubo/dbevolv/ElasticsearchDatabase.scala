@@ -60,7 +60,7 @@ object ElasticsearchDatabase extends Database {
 
   private def isStarted(log: String, info: Container) =
     isStartedRegex.findFirstIn(log).isDefined &&
-    Try(using(newClient(Docker.dockerHost, info.exposedPort)) { tempClient =>
+    Try(using(newClient(info.containerHost, info.exposedPort)) { tempClient =>
       tempClient
         .admin()
         .cluster()
@@ -231,7 +231,7 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, conf
       )
 
       try {
-        using(new ElasticsearchConnection(schemaName, Docker.dockerHost, referenceDatabase.exposedPort, config)) { referenceDatabaseConnection =>
+        using(new ElasticsearchConnection(schemaName, referenceDatabase.containerHost, referenceDatabase.exposedPort, config)) { referenceDatabaseConnection =>
           isSameSchema(referenceDatabaseConnection)
         }
       }

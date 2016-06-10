@@ -174,7 +174,7 @@ object TestDatabaseBuilder extends Logging {
     def withConnection(container: Container)(action: DatabaseConnection => Unit) =
       using(db.openConnection(
         dbSchemaName,
-        Docker.dockerHost,
+        container.containerHost,
         container.exposedPort,
         db.testDockerBaseImage.username,
         db.testDockerBaseImage.password,

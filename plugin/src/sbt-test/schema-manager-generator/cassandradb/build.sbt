@@ -1,20 +1,22 @@
 enablePlugins(DbevolvPlugin)
 
 import java.net.ServerSocket
+
 import org.apache.commons.io.FileUtils
 import java.security.MessageDigest
-import java.sql.{ResultSet, Connection, DriverManager}
+import java.sql.{Connection, DriverManager, ResultSet}
+import java.util.UUID
 
 import com.datastax.driver.core.{Cluster, Row}
 import com.mnubo._
-import com.mnubo.docker_utils.docker.Docker._
+import com.mnubo.dbevolv.docker.Docker
+import com.mnubo.dbevolv.docker.Container
 
 import scala.annotation.tailrec
 import sys.process.{Process => SProcess, ProcessLogger => SProcessLogger}
 import collection.JavaConverters._
-
 import sbtdocker.staging.DefaultDockerfileProcessor
-import sbtdocker.{DockerKeys, DockerBuild}
+import sbtdocker.{DockerBuild, DockerKeys}
 
 resolvers += "Mnubo release repository" at "http://artifactory.mtl.mnubo.com:8081/artifactory/libs-release-local/" // Temporary while removing all of our deps
 
@@ -46,30 +48,16 @@ TaskKey[Unit]("check-mgr") := {
   }
 
   case class Cassandra() {
-    val port = using(new ServerSocket(0))(_.getLocalPort)
-
-    runShell("docker pull cassandra:2.1")
-
-    val cassandraContainerId =
-      runShellAndListen(s"docker run -d -p $port:9042 cassandra:2.1")
-
-    private def isStarted =
-      runShellAndListen(s"docker logs $cassandraContainerId")
-        .contains("Listening for thrift clients...")
-
-    @tailrec
-    private def waitStarted: Unit =
-      if (!isStarted) {
-        Thread.sleep(500)
-        waitStarted
-      }
-
-    waitStarted
+    val cassandraContainer = new Container(
+      "mnubo/cassandra:2.1",
+      (logs, _) => logs.contains("Listening for thrift clients...") || logs.contains("Starting listening for CQL clients"),
+      9042
+    )
 
     private val cluster = Cluster
       .builder()
-      .addContactPoints(host)
-      .withPort(port)
+      .addContactPoints(cassandraContainer.containerHost)
+      .withPort(cassandraContainer.exposedPort)
       .build()
     val session = cluster.connect()
 
@@ -90,8 +78,8 @@ TaskKey[Unit]("check-mgr") := {
 
     def close(): Unit = {
       session.close()
-      s"docker stop $cassandraContainerId".!
-      s"docker rm -v $cassandraContainerId".!
+      cassandraContainer.stop()
+      cassandraContainer.remove()
     }
   }
 
@@ -107,8 +95,9 @@ TaskKey[Unit]("check-mgr") := {
   using(Cassandra()) { cass =>
     import cass._
 
+    // TODO: use Container
     val mgrCmd =
-      s"docker run -i --rm --link $cassandraContainerId:cassandra -v $userHome/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/var/run/docker.sock -v $dockerExec:/bin/docker -v $userHome/.docker/config.json:/root/.docker/config.json:ro -e ENV=integration cassandradb-mgr:1.0.0-SNAPSHOT"
+      s"docker run -i --rm --link ${cassandraContainer.containerId}:cassandrahost -v $userHome/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/var/run/docker.sock -v $dockerExec:$dockerExec -v $userHome/.docker/config.json:/root/.docker/config.json:ro -e ENV=integration cassandradb-mgr:1.0.0-SNAPSHOT"
 
     // Run the schema manager to migrate the db to latest version
     assert(
@@ -149,7 +138,7 @@ TaskKey[Unit]("check-mgr") := {
       s"Actual metadata ($metadata) do not match expected ($expectedMetadata)"
     )
 
-    // Run the schema manager to display history
+    logger.info("TEST: Run the schema manager to display history")
     val history =
       runShellAndListen(s"$mgrCmd --history")
     logger.info(history)
@@ -160,7 +149,7 @@ TaskKey[Unit]("check-mgr") := {
       "The schema manager did not report history properly."
     )
 
-    // Run the schema manager to downgrade to previous version
+    logger.info("TEST: Run the schema manager to downgrade to previous version")
     runShell(s"$mgrCmd --version 0001")
 
     assert(
@@ -173,7 +162,7 @@ TaskKey[Unit]("check-mgr") := {
       "Metadata is not updated correctly after a downgrade"
     )
 
-    // Fiddle with checksum and make sure the schema manager refuses to proceed
+    logger.info("TEST: Fiddle with checksum and make sure the schema manager refuses to proceed")
     execute("UPDATE cassandradb.cassandradb_version SET checksum='abc' WHERE migration_version = '0001'")
     assert(
       runShell(mgrCmd) != 0,
@@ -181,7 +170,7 @@ TaskKey[Unit]("check-mgr") := {
     )
     execute(s"UPDATE cassandradb.cassandradb_version SET checksum='$checksum1' WHERE migration_version = '0001'")
 
-    // Fiddle with schema and make sure the schema manager refuses to proceed
+    logger.info("TEST: Fiddle with schema and make sure the schema manager refuses to proceed")
     execute("ALTER TABLE cassandradb.kv RENAME k TO k2")
     assert(
       runShell(mgrCmd) != 0,
@@ -189,7 +178,7 @@ TaskKey[Unit]("check-mgr") := {
     )
     execute("ALTER TABLE cassandradb.kv RENAME k2 TO k")
 
-    // Finally, make sure we can re-apply latest migration
+    logger.info("TEST: Finally, make sure we can re-apply latest migration")
     // Actual migrations on our test db start here.
     assert(
       runShell(mgrCmd) == 0,
@@ -197,7 +186,7 @@ TaskKey[Unit]("check-mgr") := {
     )
 
     try {
-      // Add a bunch of new migrations (including a rebase) into the mix
+      logger.info("TEST: Add a bunch of new migrations (including a rebase) into the mix")
       assert(
         runShell(s"cp -R $pwd/stage2_migrations/0003 migrations/") == 0,
         "Could not copy additional migrations 0003"
@@ -212,7 +201,7 @@ TaskKey[Unit]("check-mgr") := {
       )
       rebuild()
 
-      // Make sure we can pass through a rebase
+      logger.info("TEST: Make sure we can pass through a rebase")
       assert(
         runShell(mgrCmd) == 0,
         "The schema manager should have applied the rebase and version 0005"
@@ -223,13 +212,13 @@ TaskKey[Unit]("check-mgr") := {
         s"Metadata is not updated correctly after an upgrade through a rebase: $meta"
       )
 
-      // Make sure nothing happen when already at the last version
+      logger.info("TEST: Make sure nothing happen when already at the last version")
       assert(
         runShell(mgrCmd) == 0,
         "The schema manager should have done nothing successfully"
       )
 
-      // Make sure we can rollback up to a rebase
+      logger.info("TEST: Make sure we can rollback up to a rebase")
       assert(
         runShell(s"$mgrCmd --version 0001") == 0,
         "The schema manager should have rollbacked to 0004"

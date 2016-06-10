@@ -31,7 +31,7 @@ object Dbevolv extends App with Logging {
     config.getString("schema_name")
 
   private val parser =
-    new scopt.OptionParser[DbevolvArgsConfig](s"docker run -it --rm -v $$HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/var/run/docker.sock -v $$(which docker):/bin/docker -e ENV=<environment name> $schemaName-mgr:latest") {
+    new scopt.OptionParser[DbevolvArgsConfig](s"docker run -it --rm -v $$HOME/.docker/:/root/.docker/ -v $$HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/var/run/docker.sock -v $$(which docker):$$(which docker) -e ENV=<environment name> $schemaName-mgr:latest") {
 
       if (hasInstanceForEachTenant)
         head(s"Upgrades / downgrades the $schemaName database to the given version for all the tenants.")
@@ -62,7 +62,7 @@ object Dbevolv extends App with Logging {
 
       note("")
       note("Example:")
-      note(s"  docker run -it --rm -v $$HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/var/run/docker.sock -v $$(which docker):/bin/docker -e ENV=dev $schemaName-mgr:latest --version=0004")
+      note(s"  docker run -it --rm -v $$HOME/.docker/:/root/.docker/ -v $$HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/var/run/docker.sock -v $$(which docker):$$(which docker) -e ENV=dev $schemaName-mgr:latest --version=0004")
 
     }
 

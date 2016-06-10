@@ -153,7 +153,15 @@ class MysqlConnection(schemaName: String,
       )
 
       try {
-        using(new MysqlConnection(schemaName, Docker.dockerHost, referenceDatabase.exposedPort, userName, pwd, createDatabaseStatement, config)) { referenceDatabaseConnection =>
+        using(new MysqlConnection(
+          schemaName,
+          referenceDatabase.containerHost,
+          referenceDatabase.exposedPort,
+          MysqlDatabase.testDockerBaseImage.username,
+          MysqlDatabase.testDockerBaseImage.password,
+          createDatabaseStatement,
+          config
+        )) { referenceDatabaseConnection =>
           isSameSchema(referenceDatabaseConnection)
         }
       }
