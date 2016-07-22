@@ -14,7 +14,7 @@ lazy val library = (project in file("library"))
     name := "dbevolv",
 
     libraryDependencies ++= Seq(
-      "com.mnubo"               %  "app-util"               % "[1.0.180,)" changing(),
+      "com.mnubo"               %  "app-util"               % "[1.0.226,)" changing(),
       "com.datastax.cassandra"  %  "cassandra-driver-core"  % "3.0.0" % "provided",
       "org.elasticsearch"       %  "elasticsearch"          % "1.5.2" % "provided",
       "mysql"                   %  "mysql-connector-java"   % "5.1.35" % "provided",
@@ -73,7 +73,7 @@ val commonSettings = Seq(
 
 
 
-    version := "1.0.2",
+    version := "1.0.3",
 
     organization := "com.mnubo",
 

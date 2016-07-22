@@ -7,7 +7,7 @@ import java.util.Date
 import com.datastax.driver.core.exceptions.InvalidQueryException
 import com.datastax.driver.core.{Cluster, ConsistencyLevel, Session, SimpleStatement}
 import com.mnubo.app_util.Logging
-import com.mnubo.dbevolv.docker.{Container, Docker}
+import com.mnubo.dbevolv.docker.Container
 import com.typesafe.config.Config
 import org.joda.time.{DateTime, DateTimeZone}
 
@@ -33,27 +33,28 @@ object CassandraDatabase extends Database {
       config
     )
 
-  override val testDockerBaseImage =
+  override def testDockerBaseImage =
     DatabaseDockerImage(
-      name        = "cassandra:2.1",
+      name        = "mnubo/cassandra:2.1",
       exposedPort = 9042,
       isStarted   = (log, _) => log.contains("Listening for thrift clients..."),
       flushCmd = Some(Seq("nodetool", "flush"))
     )
 }
 
-class CassandraConnection(
-                           schemaName: String,
-                           hosts: String,
-                           port: Int,
-                           createDatabaseStatement: String,
-                           config: Config) extends DatabaseConnection with Logging {
+class CassandraConnection(schemaName: String,
+                          hosts: String,
+                          port: Int,
+                          createDatabaseStatement: String,
+                          config: Config) extends DatabaseConnection with Logging {
   private val maxSchemaAgreementWaitSeconds =
     config.getInt("max_schema_agreement_wait_seconds")
   private val forcePullVerificationDb =
     config.getBoolean("force_pull_verification_db")
   private val dockerNamespace =
     if (config.hasPath("docker_namespace")) Some(config.getString("docker_namespace")) else None
+
+  log.info(s"Opening connection on $hosts, port $port")
 
   private val cluster = Cluster
     .builder()
@@ -163,11 +164,15 @@ class CassandraConnection(
         CassandraDatabase.testDockerImageName(dockerNamespace, schemaName, currentVersion),
         CassandraDatabase.testDockerBaseImage.isStarted,
         CassandraDatabase.testDockerBaseImage.exposedPort,
-        forcePull = forcePullVerificationDb
+        forcePull = forcePullVerificationDb,
+        additionalOptions = CassandraDatabase.testDockerBaseImage.additionalOptions
       )
 
+      log.info(s"Launching reference db in ${referenceDatabase.containerId}")
+
       try {
-        using(new CassandraConnection(schemaName, Docker.dockerHost, referenceDatabase.exposedPort, createDatabaseStatement, config)) { referenceDatabaseConnection =>
+        using(new CassandraConnection(schemaName, referenceDatabase.containerHost, referenceDatabase.exposedPort, createDatabaseStatement, config)) { referenceDatabaseConnection =>
+          referenceDatabaseConnection.setActiveSchema(schemaName)
           isSameSchema(referenceDatabaseConnection)
         }
       }
@@ -181,13 +186,13 @@ class CassandraConnection(
 
   override def isSameSchema(other:DatabaseConnection) : Boolean = {
     other match {
-      case otherConn:CassandraConnection =>
+      case otherConn: CassandraConnection =>
         val mySchema = schema()
         val otherSchema = otherConn.schema()
-        log.debug(s"Comparing ${innerConnection.asInstanceOf[Session].getCluster.getClusterName} with ${other.innerConnection.asInstanceOf[Session].getCluster.getClusterName} :")
+        log.debug(s"Comparing $this with $other :")
         log.debug(s"- $mySchema")
         log.debug(s"- $otherSchema")
-        mySchema.isSameAs(otherSchema)
+        otherSchema.isSameAs(mySchema)
       case _ => false
     }
   }
@@ -215,5 +220,8 @@ class CassandraConnection(
           )
         }
     )
+
+  override def toString =
+    s"CassandraConnection($hosts, $port)"
 }
 

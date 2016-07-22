@@ -1,5 +1,7 @@
 package com.mnubo.dbevolv.docker
 
+import java.io.File
+
 import com.mnubo.app_util.Logging
 import com.mnubo.dbevolv.DatabaseDockerImage
 
@@ -26,13 +28,28 @@ class Container(imageName: String,
   else
     log.info(s"The image $imageName already exists locally. Not pulling.")
 
+  val initialVolumes = s"-v /var/run/docker.sock:/var/run/docker.sock -v ${Docker.dockerExecutableLocation}:${Docker.dockerExecutableLocation}"
+  val optionalVolumes = List(
+    existsAsFile(s"${Docker.userHome}/.docker/config.json") -> s" -v ${Docker.userHome}/.docker:/root/.docker",
+    existsAsFile(s"${Docker.userHome}/.dockercfg") -> s" -v ${Docker.userHome}/.dockercfg:/root/.dockercfg"
+  )
+  val volumes = optionalVolumes.foldLeft(initialVolumes) { case (acc, (shouldMount, volume)) => if (shouldMount) acc + volume else acc }
 
-  val containerId = execShellAndRead(s"docker run -dt -v ${Docker.userHome}/.docker/config.json:/root/.docker/config.json:ro -v ${Docker.userHome}/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/var/run/docker.sock -v ${Docker.dockerExecutableLocation}:/bin/docker -P $options$imageName")
-  //require(containerId.matches(Container.IdRegex), s"The container did not start correctly: '$containerId'\n")
+  val containerId = execShellAndRead(s"docker run -dt $volumes -P $options$imageName")
+  require(containerId.matches(Container.IdRegex), s"The container did not start correctly: '$containerId'\n")
+
+  val exposedPort =
+    if (Docker.isInContainer)
+      port
+    else
+      hostPort(port)
+  val containerHost =
+    if (Docker.isInContainer)
+      s"""docker inspect --format="{{.NetworkSettings.IPAddress}}" $containerId""".!!.trim
+    else
+      Docker.dockerHost
 
   waitStarted(isStarted)
-
-  val exposedPort = hostPort(port)
 
   def hostPort(port: Int) =
     Seq(
@@ -78,19 +95,25 @@ class Container(imageName: String,
   def removeImage(id: String) =
     execShell(s"docker rmi $id")
 
+  def logs = execShellAndRead(s"docker logs $containerId")
+
   @tailrec
   private def waitStarted(isStarted: (String, Container) => Boolean, startTS: Long = System.currentTimeMillis()): Unit = {
-    val logs = execShellAndRead(s"docker logs $containerId")
-    if (!isStarted(logs, this) )
+    val currentLogs = logs
+    if (!isStarted(currentLogs, this) )
     {
       Thread.sleep(100)
       if (System.currentTimeMillis() - startTS > FiveMinMaxWaitTimeForStartInMS) {
-        throw new Exception(s"Could not start $containerId within a reasonable time. Container logs were:\n$logs\n")
+        throw new Exception(s"Could not start $containerId within a reasonable time. Container logs were:\n$currentLogs\n")
       }
       waitStarted(isStarted, startTS)
     }
   }
 
+  private def existsAsFile(path: String) = {
+    val f = new File(path)
+    f.exists && f.isFile
+  }
 }
 
 object Container extends Logging {

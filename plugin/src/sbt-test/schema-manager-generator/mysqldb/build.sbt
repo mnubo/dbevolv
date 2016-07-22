@@ -6,7 +6,7 @@ import java.security.MessageDigest
 import java.sql.{ResultSet, Connection, DriverManager}
 
 import com.mnubo._
-import com.mnubo.docker_utils.docker.Docker._
+import com.mnubo.dbevolv.docker.Docker
 
 import scala.annotation.tailrec
 import sys.process.{Process => SProcess, ProcessLogger => SProcessLogger}
@@ -19,7 +19,7 @@ TaskKey[Unit]("check-mgr") := {
   def runShellAndListen(cmd: String) = {
     val out = new StringBuilder
     val err = new StringBuilder
-    val l = SProcessLogger(o => out.append(o + "\n"), e => err.append(e) + "\n")
+    val l = SProcessLogger(o => {out.append(o + "\n"); logger.info(o)}, e => {err.append(e) + "\n"; logger.error(e)})
 
     logger.info(cmd)
     SProcess(cmd) ! l
@@ -34,10 +34,10 @@ TaskKey[Unit]("check-mgr") := {
   case class Mysql() {
     val port = using(new ServerSocket(0))(_.getLocalPort)
 
-    runShell("docker pull mysql:5.6")
+    runShell("docker pull mnubo/mysql:5.6.31")
 
     val mysqlContainerId =
-      runShellAndListen(s"docker run -d -p $port:3306 -e MYSQL_ROOT_PASSWORD=root mysql:5.6")
+      runShellAndListen(s"docker run -d -p $port:3306 -e MYSQL_ROOT_PASSWORD=root mnubo/mysql:5.6.31")
 
     private def isStarted =
       runShellAndListen(s"docker logs $mysqlContainerId")
@@ -53,7 +53,7 @@ TaskKey[Unit]("check-mgr") := {
     waitStarted
 
     new com.mysql.jdbc.Driver() // Register driver
-    val connection = DriverManager.getConnection(s"jdbc:mysql://$host:$port", "root", "root")
+    val connection = DriverManager.getConnection(s"jdbc:mysql://${Docker.dockerHost}:$port", "root", "root")
 
     def query[T](sql: String)(readFunction: ResultSet =>T): Seq[T] = {
       using(connection.createStatement().executeQuery(sql)) { rs: ResultSet =>
@@ -93,8 +93,9 @@ TaskKey[Unit]("check-mgr") := {
   using(Mysql()) { ms =>
     import ms._
 
+    // TODO: use Container
     val mgrCmd =
-      s"docker run -i --rm --link $mysqlContainerId:mysql -v $userHome/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/var/run/docker.sock -v $dockerExec:/bin/docker -v $userHome/.docker/config.json:/root/.docker/config.json:ro -e ENV=integration mysqldb-mgr:1.0.0-SNAPSHOT"
+      s"docker run -i --rm --link $mysqlContainerId:mysql -v $userHome/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/var/run/docker.sock -v $dockerExec:$dockerExec -v $userHome/.docker/config.json:/root/.docker/config.json:ro -e ENV=integration mysqldb-mgr:1.0.0-SNAPSHOT"
 
     // Run the schema manager to migrate the db to latest version
     assert(
@@ -134,7 +135,7 @@ TaskKey[Unit]("check-mgr") := {
       s"Actual metadata ($metadata) do not match expected ($expectedMetadata)"
     )
 
-    // Run the schema manager to display history
+    logger.info("TEST: Run the schema manager to display history")
     val history =
       runShellAndListen(s"$mgrCmd --history")
     logger.info(history)
@@ -145,7 +146,7 @@ TaskKey[Unit]("check-mgr") := {
       "The schema manager did not report history properly."
     )
 
-    // Run the schema manager to downgrade to previous version
+    logger.info("TEST: Run the schema manager to downgrade to previous version")
     runShell(s"$mgrCmd --version 0001")
 
     assert(
@@ -158,7 +159,7 @@ TaskKey[Unit]("check-mgr") := {
       "Metadata is not updated correctly after a downgrade"
     )
 
-    // Fiddle with checksum and make sure the schema manager refuses to proceed
+    logger.info("TEST: Fiddle with checksum and make sure the schema manager refuses to proceed")
     execute("UPDATE mysqldb.mysqldb_version SET checksum='abc' WHERE migration_version = '0001'")
     assert(
       runShell(mgrCmd) != 0,
@@ -166,15 +167,15 @@ TaskKey[Unit]("check-mgr") := {
     )
     execute(s"UPDATE mysqldb.mysqldb_version SET checksum='$checksum1' WHERE migration_version = '0001'")
 
-    // Fiddle with schema and make sure the schema manager refuses to proceed
+    logger.info("TEST: Fiddle with schema and make sure the schema manager refuses to proceed")
     execute("ALTER TABLE mysqldb.kv CHANGE COLUMN v v2 VARCHAR(255)")
     assert(
-      runShell(mgrCmd) != 0,
+      runShellAndListen(mgrCmd).contains("Table kv does not contain a column v (type = 12)"),
       "The schema manager should not have accepted to proceed with a wrong schema"
     )
     execute("ALTER TABLE mysqldb.kv CHANGE COLUMN v2 v VARCHAR(255)")
 
-    // Finally, make sure we can re-apply latest migration
+    logger.info("TEST: Finally, make sure we can re-apply latest migration")
     assert(
       runShell(mgrCmd) == 0,
       "The schema manager should have run successfully"

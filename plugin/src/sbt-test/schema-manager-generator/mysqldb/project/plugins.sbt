@@ -6,8 +6,6 @@ resolvers ++= Seq(
 addSbtPlugin("com.mnubo" % "dbevolv-sbt-plugin" % System.getProperty("plugin.version"))
 
 libraryDependencies ++= Seq(
-  "com.mnubo"               %  "docker-utils"             % "[1.0.332,)" changing() excludeAll (
-    ExclusionRule("org.joda", "joda-convert"),
-    ExclusionRule("org.slf4j", "slf4j-log4j12")
-  )
+  "com.mnubo" %% "dbevolv" % System.getProperty("plugin.version"),
+  "mysql" % "mysql-connector-java"   % "5.1.35"
 )

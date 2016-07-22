@@ -34,7 +34,7 @@ object MysqlDatabase extends Database {
 
   override val testDockerBaseImage =
     DatabaseDockerImage(
-      name              = "mysql:5.6",
+      name              = "mnubo/mysql:5.6.31",
       exposedPort       = 3306,
       isStarted         = (log, _) => log.contains("socket: '/var/run/mysqld/mysqld.sock'  port: 3306"),
       username          = "root",
@@ -153,7 +153,16 @@ class MysqlConnection(schemaName: String,
       )
 
       try {
-        using(new MysqlConnection(schemaName, Docker.dockerHost, referenceDatabase.exposedPort, userName, pwd, createDatabaseStatement, config)) { referenceDatabaseConnection =>
+        using(new MysqlConnection(
+          schemaName,
+          referenceDatabase.containerHost,
+          referenceDatabase.exposedPort,
+          MysqlDatabase.testDockerBaseImage.username,
+          MysqlDatabase.testDockerBaseImage.password,
+          createDatabaseStatement,
+          config
+        )) { referenceDatabaseConnection =>
+          referenceDatabaseConnection.setActiveSchema(schemaName)
           isSameSchema(referenceDatabaseConnection)
         }
       }
@@ -170,7 +179,7 @@ class MysqlConnection(schemaName: String,
       case otherConn:MysqlConnection =>
         val mySchema = schema()
         val otherSchema = otherConn.schema()
-        mySchema.isSameAs(otherSchema)
+        otherSchema.isSameAs(mySchema)
       case _ => false
     }
   }

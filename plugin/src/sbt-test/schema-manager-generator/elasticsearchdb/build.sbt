@@ -4,7 +4,7 @@ import java.net.ServerSocket
 import org.apache.commons.io.FileUtils
 import java.security.MessageDigest
 import com.mnubo._
-import com.mnubo.docker_utils.docker.Docker._
+import com.mnubo.dbevolv.docker._
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthStatus
 import org.elasticsearch.client.transport.TransportClient
 import org.elasticsearch.common.settings.ImmutableSettings
@@ -26,7 +26,7 @@ TaskKey[Unit]("check-mgr") := {
   def runShellAndListen(cmd: String) = {
     val out = new StringBuilder
     val err = new StringBuilder
-    val l = SProcessLogger(o => out.append(o + "\n"), e => err.append(e) + "\n")
+    val l = SProcessLogger(o => {out.append(o + "\n"); logger.info(o)}, e => {err.append(e) + "\n"; logger.error(e)})
 
     logger.info(cmd)
     SProcess(cmd) ! l
@@ -42,19 +42,16 @@ TaskKey[Unit]("check-mgr") := {
   val typeName = "kv"
 
   case class Elasticsearch() {
-    val port = using(new ServerSocket(0))(_.getLocalPort)
+    val esContainer = new Container(
+      "mnubo/elasticsearch:1.5.2",
+      isStarted _,
+      9300
+    )
 
-    runShell("docker pull elasticsearch:1.5")
-
-    val elasticsearchContainerId =
-      runShellAndListen(s"docker run -d -p $port:9300 elasticsearch:1.5")
-
-    logger.info(s"ES container id: $elasticsearchContainerId")
-
-    private def isStarted = {
+    private def isStarted(logs: String, container: Container) = {
       try {
-        runShellAndListen(s"docker logs $elasticsearchContainerId").contains("] indices into cluster_state") &&
-        using(new TransportClient(ImmutableSettings.builder().classLoader(getClass.getClassLoader).build()).addTransportAddresses(new InetSocketTransportAddress(host, port))) { tempClient =>
+        logs.contains("] indices into cluster_state") &&
+        using(new TransportClient(ImmutableSettings.builder().classLoader(getClass.getClassLoader).build()).addTransportAddresses(new InetSocketTransportAddress(container.containerHost, container.exposedPort))) { tempClient =>
           val health = tempClient
             .admin()
             .cluster()
@@ -71,16 +68,7 @@ TaskKey[Unit]("check-mgr") := {
       }
     }
 
-    @tailrec
-    private def waitStarted: Unit =
-      if (!isStarted) {
-        Thread.sleep(500)
-        waitStarted
-      }
-
-    waitStarted
-
-    val client = new TransportClient(ImmutableSettings.builder().classLoader(getClass.getClassLoader).build()).addTransportAddresses(new InetSocketTransportAddress(host, port))
+    val client = new TransportClient(ImmutableSettings.builder().classLoader(getClass.getClassLoader).build()).addTransportAddresses(new InetSocketTransportAddress(esContainer.containerHost, esContainer.exposedPort))
 
     def count =
       client
@@ -107,8 +95,8 @@ TaskKey[Unit]("check-mgr") := {
 
     def close(): Unit = {
       client.close()
-      s"docker stop $elasticsearchContainerId".!
-      s"docker rm -v $elasticsearchContainerId".!
+      esContainer.stop()
+      esContainer.remove()
     }
   }
 
@@ -124,10 +112,11 @@ TaskKey[Unit]("check-mgr") := {
   using(Elasticsearch()) { es =>
     import es._
 
+    // TODO: use Container
     val mgrCmd =
-      s"docker run -i --rm --link $elasticsearchContainerId:elasticsearch -v $userHome/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/var/run/docker.sock -v $dockerExec:/bin/docker -v $userHome/.docker/config.json:/root/.docker/config.json:ro -e ENV=integration elasticsearchdb-mgr:1.0.0-SNAPSHOT"
+      s"docker run -i --rm --link ${esContainer.containerId}:elasticsearch -v /var/run/docker.sock:/var/run/docker.sock -v $dockerExec:$dockerExec -v $userHome/.docker/:/root/.docker/ -e ENV=integration elasticsearchdb-mgr:1.0.0-SNAPSHOT"
 
-    // Run the schema manager to migrate the db to latest version
+    logger.info("TEST: Run the schema manager to migrate the db to latest version")
     assert(
       runShell(mgrCmd) == 0,
       "The schema manager failed."
@@ -166,7 +155,7 @@ TaskKey[Unit]("check-mgr") := {
       s"Actual metadata ($metadata) do not match expected ($expectedMetadata)"
     )
 
-    // Run the schema manager to display history
+    logger.info("TEST: Run the schema manager to display history")
     val history =
       runShellAndListen(s"$mgrCmd --history")
     logger.info(history)
@@ -177,7 +166,7 @@ TaskKey[Unit]("check-mgr") := {
       "The schema manager did not report history properly."
     )
 
-    // Run the schema manager to downgrade to previous version
+    logger.info("TEST: Run the schema manager to downgrade to previous version")
     runShell(s"$mgrCmd --version 0001")
 
     assert(
@@ -191,7 +180,7 @@ TaskKey[Unit]("check-mgr") := {
     )
 
 
-    // Fiddle with checksum and make sure the schema manager refuses to proceed
+    logger.info("TEST: Fiddle with checksum and make sure the schema manager refuses to proceed")
     client
       .prepareUpdate(indexName, "elasticsearchdb_version", "0001")
       .setDoc("checksum", "abc")
@@ -207,7 +196,7 @@ TaskKey[Unit]("check-mgr") := {
       .setDoc("checksum", checksum1)
       .get()
 
-    // Fiddle with schema and make sure the schema manager refuses to proceed
+    logger.info("TEST: Fiddle with schema and make sure the schema manager refuses to proceed")
     client
       .admin
       .indices
@@ -216,7 +205,7 @@ TaskKey[Unit]("check-mgr") := {
       .get
 
     assert(
-      runShell(mgrCmd) != 0,
+      runShellAndListen(mgrCmd).contains("The schema does not contain the table kv"),
       "The schema manager should not have accepted to proceed with a wrong schema"
     )
 
@@ -244,7 +233,7 @@ TaskKey[Unit]("check-mgr") := {
         """.stripMargin)
       .get
 
-    // Finally, make sure we can re-apply latest migration
+    logger.info("TEST: Finally, make sure we can re-apply latest migration")
     assert(
       runShell(mgrCmd) == 0,
       "The schema manager should have run successfully"
