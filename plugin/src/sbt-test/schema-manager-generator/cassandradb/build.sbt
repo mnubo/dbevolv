@@ -35,7 +35,7 @@ TaskKey[Unit]("check-mgr") := {
   def runShellAndListen(cmd: String) = {
     val out = new StringBuilder
     val err = new StringBuilder
-    val l = SProcessLogger(o => out.append(o + "\n"), e => err.append(e) + "\n")
+    val l = SProcessLogger(o => {out.append(o + "\n"); logger.info(o)}, e => {err.append(e) + "\n"; logger.error(e)})
 
     logger.info(cmd)
     SProcess(cmd) ! l
@@ -173,9 +173,10 @@ TaskKey[Unit]("check-mgr") := {
     logger.info("TEST: Fiddle with schema and make sure the schema manager refuses to proceed")
     execute("ALTER TABLE cassandradb.kv RENAME k TO k2")
     assert(
-      runShell(mgrCmd) != 0,
+      runShellAndListen(mgrCmd).contains("Table kv does not contain a column k (type = text)"),
       "The schema manager should not have accepted to proceed with a wrong schema"
     )
+    Thread.sleep(10000)
     execute("ALTER TABLE cassandradb.kv RENAME k2 TO k")
 
     logger.info("TEST: Finally, make sure we can re-apply latest migration")

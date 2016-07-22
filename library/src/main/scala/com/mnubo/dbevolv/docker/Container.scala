@@ -95,14 +95,16 @@ class Container(imageName: String,
   def removeImage(id: String) =
     execShell(s"docker rmi $id")
 
+  def logs = execShellAndRead(s"docker logs $containerId")
+
   @tailrec
   private def waitStarted(isStarted: (String, Container) => Boolean, startTS: Long = System.currentTimeMillis()): Unit = {
-    val logs = execShellAndRead(s"docker logs $containerId")
-    if (!isStarted(logs, this) )
+    val currentLogs = logs
+    if (!isStarted(currentLogs, this) )
     {
       Thread.sleep(100)
       if (System.currentTimeMillis() - startTS > FiveMinMaxWaitTimeForStartInMS) {
-        throw new Exception(s"Could not start $containerId within a reasonable time. Container logs were:\n$logs\n")
+        throw new Exception(s"Could not start $containerId within a reasonable time. Container logs were:\n$currentLogs\n")
       }
       waitStarted(isStarted, startTS)
     }

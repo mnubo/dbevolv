@@ -26,7 +26,7 @@ TaskKey[Unit]("check-mgr") := {
   def runShellAndListen(cmd: String) = {
     val out = new StringBuilder
     val err = new StringBuilder
-    val l = SProcessLogger(o => out.append(o + "\n"), e => err.append(e) + "\n")
+    val l = SProcessLogger(o => {out.append(o + "\n"); logger.info(o)}, e => {err.append(e) + "\n"; logger.error(e)})
 
     logger.info(cmd)
     SProcess(cmd) ! l
@@ -114,7 +114,7 @@ TaskKey[Unit]("check-mgr") := {
 
     // TODO: use Container
     val mgrCmd =
-      s"docker run -i --rm --link ${esContainer.containerId}:elasticsearch -v $userHome/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/var/run/docker.sock -v $dockerExec:$dockerExec -v $userHome/.docker/:/root/.docker/ -e ENV=integration elasticsearchdb-mgr:1.0.0-SNAPSHOT"
+      s"docker run -i --rm --link ${esContainer.containerId}:elasticsearch -v /var/run/docker.sock:/var/run/docker.sock -v $dockerExec:$dockerExec -v $userHome/.docker/:/root/.docker/ -e ENV=integration elasticsearchdb-mgr:1.0.0-SNAPSHOT"
 
     logger.info("TEST: Run the schema manager to migrate the db to latest version")
     assert(
@@ -205,7 +205,7 @@ TaskKey[Unit]("check-mgr") := {
       .get
 
     assert(
-      runShell(mgrCmd) != 0,
+      runShellAndListen(mgrCmd).contains("The schema does not contain the table kv"),
       "The schema manager should not have accepted to proceed with a wrong schema"
     )
 

@@ -19,7 +19,7 @@ TaskKey[Unit]("check-mgr") := {
   def runShellAndListen(cmd: String) = {
     val out = new StringBuilder
     val err = new StringBuilder
-    val l = SProcessLogger(o => out.append(o + "\n"), e => err.append(e) + "\n")
+    val l = SProcessLogger(o => {out.append(o + "\n"); logger.info(o)}, e => {err.append(e) + "\n"; logger.error(e)})
 
     logger.info(cmd)
     SProcess(cmd) ! l
@@ -34,10 +34,10 @@ TaskKey[Unit]("check-mgr") := {
   case class Mysql() {
     val port = using(new ServerSocket(0))(_.getLocalPort)
 
-    runShell("docker pull mysql:5.6")
+    runShell("docker pull mnubo/mysql:5.6.31")
 
     val mysqlContainerId =
-      runShellAndListen(s"docker run -d -p $port:3306 -e MYSQL_ROOT_PASSWORD=root mysql:5.6")
+      runShellAndListen(s"docker run -d -p $port:3306 -e MYSQL_ROOT_PASSWORD=root mnubo/mysql:5.6.31")
 
     private def isStarted =
       runShellAndListen(s"docker logs $mysqlContainerId")
@@ -170,7 +170,7 @@ TaskKey[Unit]("check-mgr") := {
     logger.info("TEST: Fiddle with schema and make sure the schema manager refuses to proceed")
     execute("ALTER TABLE mysqldb.kv CHANGE COLUMN v v2 VARCHAR(255)")
     assert(
-      runShell(mgrCmd) != 0,
+      runShellAndListen(mgrCmd).contains("Table kv does not contain a column v (type = 12)"),
       "The schema manager should not have accepted to proceed with a wrong schema"
     )
     execute("ALTER TABLE mysqldb.kv CHANGE COLUMN v2 v VARCHAR(255)")

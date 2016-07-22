@@ -17,6 +17,7 @@ import spray.json._
 
 import scala.collection.JavaConverters._
 import scala.util.Try
+import scala.util.control.NonFatal
 
 object ElasticsearchDatabase extends Database {
   val name = "elasticsearch"
@@ -37,7 +38,7 @@ object ElasticsearchDatabase extends Database {
 
   override val testDockerBaseImage =
     DatabaseDockerImage(
-      name              = "elasticsearch:1.5",
+      name              = "mnubo/elasticsearch:1.5.2",
       exposedPort       = 9300,
       isStarted         = isStarted
     )
@@ -58,9 +59,9 @@ object ElasticsearchDatabase extends Database {
     new TransportClient(settings).addTransportAddresses(addresses: _*)
   }
 
-  private def isStarted(log: String, info: Container) =
+  private def isStarted(log: String, container: Container) =
     isStartedRegex.findFirstIn(log).isDefined &&
-    Try(using(newClient(info.containerHost, info.exposedPort)) { tempClient =>
+    Try(using(newClient(container.containerHost, container.exposedPort)) { tempClient =>
       tempClient
         .admin()
         .cluster()
@@ -232,6 +233,7 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, conf
 
       try {
         using(new ElasticsearchConnection(schemaName, referenceDatabase.containerHost, referenceDatabase.exposedPort, config)) { referenceDatabaseConnection =>
+          referenceDatabaseConnection.setActiveSchema(schemaName)
           isSameSchema(referenceDatabaseConnection)
         }
       }
@@ -242,12 +244,12 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, conf
     }
   }
 
-  override def isSameSchema(other:DatabaseConnection) : Boolean = {
+  override def isSameSchema(other: DatabaseConnection) : Boolean = {
     other match {
       case otherConn:ElasticsearchConnection =>
         val mySchema = schema()
         val otherSchema = otherConn.schema()
-        mySchema.isSameAs(otherSchema)
+        otherSchema.isSameAs(mySchema)
       case _ => false
     }
   }

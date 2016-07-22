@@ -192,7 +192,7 @@ class CassandraConnection(schemaName: String,
         log.debug(s"Comparing $this with $other :")
         log.debug(s"- $mySchema")
         log.debug(s"- $otherSchema")
-        mySchema.isSameAs(otherSchema)
+        otherSchema.isSameAs(mySchema)
       case _ => false
     }
   }
