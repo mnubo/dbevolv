@@ -2,7 +2,7 @@ package com.mnubo.dbevolv
 
 import java.io.{FileFilter, File}
 
-import com.mnubo.app_util.Logging
+import com.mnubo.dbevolv.util.Logging
 
 import scala.io.Source
 

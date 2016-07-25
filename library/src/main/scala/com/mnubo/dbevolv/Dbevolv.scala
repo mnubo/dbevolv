@@ -1,37 +1,18 @@
 package com.mnubo
 package dbevolv
 
-import java.io.File
-
-import com.mnubo.app_util.MnuboEnvironments._
-import com.mnubo.app_util.{Logging, MnuboConfiguration}
-import com.typesafe.config.{Config, ConfigFactory}
+import com.mnubo.dbevolv.util.Logging
+import com.typesafe.config.Config
 
 object Dbevolv extends App with Logging {
-  private val config =
-    ConfigFactory
-      .defaultOverrides()
-      .withFallback(
-        MnuboConfiguration.loadConfig(
-          ConfigFactory
-            .parseFile(new File("db.conf"))
-            .withFallback(ConfigFactory.load())
-        )
-      )
-      .withFallback(
-        ConfigFactory.load()
-      )
-  private val env =
-    System.getenv("ENV")
-  private val isSensitiveEnvironment =
-    Set(Dev, Qa, Sandbox, Prod, QaSandbox).contains(env)
+  private val config = DbevolvConfiguration.loadConfig()
   private val hasInstanceForEachTenant =
     config.getBoolean("has_instance_for_each_tenant")
   private val schemaName =
     config.getString("schema_name")
 
   private val parser =
-    new scopt.OptionParser[DbevolvArgsConfig](s"docker run -it --rm -v $$HOME/.docker/:/root/.docker/ -v $$HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/var/run/docker.sock -v $$(which docker):$$(which docker) -e ENV=<environment name> $schemaName-mgr:latest") {
+    new scopt.OptionParser[DbevolvArgsConfig](s"docker run -it --rm -v $$HOME/.docker/:/root/.docker/ -v /var/run/docker.sock:/var/run/docker.sock -v $$(which docker):$$(which docker) -e ENV=<environment name> $schemaName-mgr:latest") {
 
       if (hasInstanceForEachTenant)
         head(s"Upgrades / downgrades the $schemaName database to the given version for all the tenants.")
@@ -45,12 +26,6 @@ object Dbevolv extends App with Logging {
         opt[String]('t', "tenant") action { (x, c) =>
           c.copy(tenantSpecified = true, tenant = if(x.isEmpty) None else Some(x)) } text "The tenant you want to upgrade / downgrade to. If not specified, will upgrade all tenants."
 
-      if (!isSensitiveEnvironment) {
-        opt[Unit]("drop") action { (_, c) =>
-          c.copy(drop = true)
-        } text "[DANGEROUS] Whether you want to first drop the database before migrating to the given version. WARNING! You will loose all your data, don't use this option in production!"
-      }
-
       opt[Unit]("history") action { (_, c) =>
         c.copy(cmd = DisplayHistory) } text "Display history of database migrations instead of migrating the database."
 
@@ -62,27 +37,22 @@ object Dbevolv extends App with Logging {
 
       note("")
       note("Example:")
-      note(s"  docker run -it --rm -v $$HOME/.docker/:/root/.docker/ -v $$HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/var/run/docker.sock -v $$(which docker):$$(which docker) -e ENV=dev $schemaName-mgr:latest --version=0004")
+      note(s"  docker run -it --rm -v $$HOME/.docker/:/root/.docker/ -v /var/run/docker.sock:/var/run/docker.sock -v $$(which docker):$$(which docker) -e ENV=dev $schemaName-mgr:latest --version=0004")
 
     }
 
   parser.parse(args, DbevolvArgsConfig()).foreach { argConfig =>
 
-    if (argConfig.drop && isSensitiveEnvironment)
-      throw new Exception("Sorry, the --drop option is not available in dev, qa, preprod, sandbox, or prod.")
-
     val version = argConfig
       .version
       .orElse {
+        require(config.hasPath("schema_version"), "Sorry, you have to define a 'schema_version' in your 'db.conf'.")
         val cfgVersion = config.getString("schema_version")
         if (cfgVersion == "latest")
           None
         else
           Some(cfgVersion)
       }
-
-    if (version.isEmpty && isSensitiveEnvironment)
-      throw new Exception("Sorry, you have to define a 'schema_version' in your 'db.conf' for dev, qa, preprod, sandbox, and prod.")
 
     val tenants =
       if (argConfig.tenantSpecified)
@@ -111,7 +81,7 @@ object Dbevolv extends App with Logging {
       config
     )) { connection =>
       tenants.foreach { ns =>
-        val cfg = DbMigrationConfig(connection, argConfig, config, ns, version)
+        val cfg = DbMigrationConfig(connection, config, ns, version.filter(_ != "latest"))
 
         argConfig.cmd match {
           case Migrate =>

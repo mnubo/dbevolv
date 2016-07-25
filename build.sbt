@@ -1,5 +1,60 @@
 import scala.xml.Group
 
+val commonSettings = Seq(
+  version := "1.0.3",
+
+  organization := "com.mnubo",
+
+  scalaVersion := "2.10.6",
+
+  scalacOptions ++= Seq("-unchecked", "-deprecation", "-optimize", "-feature"),
+
+  javacOptions ++= Seq("-target", "1.6", "-source", "1.6"),
+
+  homepage := Some(new URL("https://github.com/mnubo/dbevolv")),
+
+  startYear := Some(2016),
+
+  licenses := Seq(("Apache-2.0", new URL("http://www.apache.org/licenses/LICENSE-2.0"))),
+
+  pomExtra <<= (pomExtra, name, description) {(pom, name, desc) => pom ++ Group(
+    <scm>
+      <url>http://github.com/mnubo/dbevolv</url>
+      <connection>scm:git:git://github.com/mnubo/dbevolv.git</connection>
+    </scm>
+      <developers>
+        <developer>
+          <id>jletroui</id>
+          <name>Julien Letrouit</name>
+          <url>http://julienletrouit.com/</url>
+        </developer>
+        <developer>
+          <id>lemieud</id>
+          <name>David Lemieux</name>
+          <url>https://github.com/lemieud</url>
+        </developer>
+      </developers>
+  )},
+
+  sonatypeProfileName := "mnuboci",
+
+  resolvers ++= Seq(Opts.resolver.sonatypeSnapshots, Opts.resolver.sonatypeReleases),
+
+  pomIncludeRepository := { _ => false },
+
+  publishMavenStyle := true,
+
+  publishTo := {
+    val nexus = "https://oss.sonatype.org/"
+    if (isSnapshot.value)
+      Some("snapshots" at nexus + "content/repositories/snapshots")
+    else
+      Some("releases"  at nexus + "service/local/staging/deploy/maven2")
+  },
+
+  pomIncludeRepository := { _ => false }
+)
+
 lazy val root = (project in file("."))
   .settings(
     publishArtifact := false,
@@ -14,7 +69,7 @@ lazy val library = (project in file("library"))
     name := "dbevolv",
 
     libraryDependencies ++= Seq(
-      "com.mnubo"               %  "app-util"               % "[1.0.226,)" changing(),
+      "com.typesafe"            %  "config"                 % "1.2.1",
       "com.datastax.cassandra"  %  "cassandra-driver-core"  % "3.0.0" % "provided",
       "org.elasticsearch"       %  "elasticsearch"          % "1.5.2" % "provided",
       "mysql"                   %  "mysql-connector-java"   % "5.1.35" % "provided",
@@ -65,66 +120,5 @@ lazy val plugin = (project in file("plugin"))
   val MnuboNexus = "http://artifactory.mtl.mnubo.com:8081/artifactory"
   val MnuboThirdParties = "Mnubo third parties" at s"$MnuboNexus/repo"
 
-val commonSettings = Seq(
-    resolvers += "Mnubo release repository" at "http://artifactory.mtl.mnubo.com:8081/artifactory/libs-release-local/", // Temporary while removing all of our deps
-
-    resolvers += MnuboThirdParties, // Temporary while removing all of our deps
-
-
-
-
-    version := "1.0.3",
-
-    organization := "com.mnubo",
-
-    scalaVersion := "2.10.6",
-
-    scalacOptions ++= Seq("-unchecked", "-deprecation", "-optimize", "-feature"),
-
-    javacOptions ++= Seq("-target", "1.6", "-source", "1.6"),
-
-    homepage := Some(new URL("https://github.com/mnubo/dbevolv")),
-
-    startYear := Some(2016),
-
-    licenses := Seq(("Apache-2.0", new URL("http://www.apache.org/licenses/LICENSE-2.0"))),
-
-    pomExtra <<= (pomExtra, name, description) {(pom, name, desc) => pom ++ Group(
-      <scm>
-        <url>http://github.com/mnubo/dbevolv</url>
-        <connection>scm:git:git://github.com/mnubo/dbevolv.git</connection>
-      </scm>
-        <developers>
-          <developer>
-            <id>jletroui</id>
-            <name>Julien Letrouit</name>
-            <url>http://julienletrouit.com/</url>
-          </developer>
-          <developer>
-            <id>lemieud</id>
-            <name>David Lemieux</name>
-            <url>https://github.com/lemieud</url>
-          </developer>
-        </developers>
-    )},
-
-    sonatypeProfileName := "mnuboci",
-
-    resolvers ++= Seq(Opts.resolver.sonatypeSnapshots, Opts.resolver.sonatypeReleases),
-
-    pomIncludeRepository := { _ => false },
-
-    publishMavenStyle := true,
-
-    publishTo := {
-      val nexus = "https://oss.sonatype.org/"
-      if (isSnapshot.value)
-        Some("snapshots" at nexus + "content/repositories/snapshots")
-      else
-        Some("releases"  at nexus + "service/local/staging/deploy/maven2")
-    },
-    
-    pomIncludeRepository := { _ => false }
-)
 
 
