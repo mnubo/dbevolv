@@ -26,7 +26,7 @@
 dbevolv
 =======
 
-Allows to upgrade / downgrade our database instances to a particular version. It supports multiple logical databases in the same physical database/keyspace.
+Allows to evolve data store instances. Supports automatic testing, multi-tenancy, test database generation, custom scripts, big data stores.
 
 Supported data stores
 ---------------------
@@ -58,16 +58,22 @@ Create a git repo with the following structure:
 The `db.conf` should contain the description of the data store schema. You must also specify the connection strings for all the environments. For example:
 
     database_kind = cassandra
-    hasInstanceForEachTenant = false
+    has_instance_for_each_tenant = true
     schema_name = reverse_geo
     app_name = reverse_geo-schema-manager
     create_database_statement = "CREATE KEYSPACE @@DATABASE_NAME@@ WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }"
 
-    workstation {
-      host = "localhost"
-    }
+    test_configurations = [
+      {
+        tenant = "mycustomer1"
+      },
+      {
+        tenant = "mycustomer2"
+      }
+    ]
+
     dev {
-      host = "atca-mnu1-s06.mtl.mnubo.com,atca-mnu1-s09.mtl.mnubo.com,atca-mnu1-s13.mtl.mnubo.com"
+      host = "my-dev-cassandra-host1,my-dev-cassandra-host2,my-dev-cassandra-host3"
       schema_version = "0050"
     }
     qa {
@@ -107,6 +113,8 @@ Here are the different parameters you can configure:
 * **shard_number**: for Elasticsearch, how many shards the index should have.
 * **replica_number**: for Elasticsearch, in how many additional replicas each shard should be replicated (0 means no replication).
 * **max_schema_agreement_wait_seconds**: for Cassandra, sets the maximum time to wait for schema agreement before returning from a DDL query (default: 30).
+* **test_configurations**: configurations for which to generate test instances during the `buildTestContainer` task. This allows you to have various keyspaces / indices / databases within the test containers.
+* **tenant**: only used within `configurations`, defines a tenant name for which a test db instance should be created.
 
 Note: most of the settings can have a default value at the top, but can be overriden for a given environment. See for example `create_database_statement` in the above example.
 
@@ -244,7 +252,7 @@ The constructor must have one and one argument only, which is the typesafe confi
 
 Then, you could add your repository specific configuration in the `db.conf` file. In the previous fictitious example, it would look like:
 
-    hasInstanceForEachTenant = true
+    has_instance_for_each_tenant = true
     tenant_repository_class = "mycompany.tenants.MyTenantRepository"
     tenantdb.host = "mydbhost"
     tenantdb.port = 3306
@@ -264,10 +272,12 @@ Sometimes, this is not suitable. For example, QA keyspace names might be totally
 
     package com.mnubo.ingestion
 
+    import com.typesafe.config.Config
+
     class LegacyDatabaseNameProvider extends DatabaseNameProvider {
       private val default = new DefaultDatabaseNameProvider
 
-      def computeDatabaseName(schemaLogicalName: String, tenant: Option[String]) =
+      def computeDatabaseName(schemaLogicalName: String, tenant: Option[String], config: Config) =
         tenant
     }
 
@@ -303,7 +313,7 @@ To get usage:
 This should result to something like:
 
     Upgrades / downgrades the mydatabase database to the given version for all the tenants.
-    Usage: docker run -it --rm -v $HOME/.docker/:/root/.docker/ -v $HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/var/run/docker.sock -v $(which docker):$(which docker) -e ENV=<environment name> mydatabase-mgr:latest [options]
+    Usage: docker run -it --rm -v $HOME/.docker/:/root/.docker/ -v /var/run/docker.sock:/var/run/docker.sock -v $(which docker):$(which docker) -e ENV=<environment name> mydatabase-mgr:latest [options]
 
       -v <value> | --version <value>
             The version you want to upgrade / downgrade to. If not specified, will upgrade to latest version.
@@ -318,7 +328,7 @@ This should result to something like:
       the volume mounts are only necessary when upgrading a schema. You can omit them when downgrading, getting help, or display the history.
 
     Example:
-      docker run -it --rm -v $HOME/.docker/:/root/.docker/ -v $HOME/.dockercfg:/root/.dockercfg -v /var/run/docker.sock:/var/run/docker.sock -v $(which docker):$(which docker) -e ENV=dev mydatabase:latest --version 0004
+      docker run -it --rm -v $HOME/.docker/:/root/.docker/ -v /var/run/docker.sock:/var/run/docker.sock -v $(which docker):$(which docker) -e ENV=dev mydatabase:latest --version 0004
       
 Note: the help message is slightly different for the databases that don't have one instance by tenant (global databases).
 

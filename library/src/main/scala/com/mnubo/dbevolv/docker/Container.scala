@@ -2,7 +2,7 @@ package com.mnubo.dbevolv.docker
 
 import java.io.File
 
-import com.mnubo.app_util.Logging
+import com.mnubo.dbevolv.util.Logging
 import com.mnubo.dbevolv.DatabaseDockerImage
 
 import scala.sys.process._

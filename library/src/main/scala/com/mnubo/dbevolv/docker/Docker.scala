@@ -3,7 +3,7 @@ package dbevolv.docker
 
 import java.io.File
 
-import com.mnubo.app_util.Logging
+import com.mnubo.dbevolv.util.Logging
 
 import scala.io.Source
 import scala.sys.process._

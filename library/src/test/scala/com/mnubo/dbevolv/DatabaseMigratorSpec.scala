@@ -1,6 +1,6 @@
 package com.mnubo.dbevolv
 
-import com.mnubo.app_util.Logging
+import com.mnubo.dbevolv.util.Logging
 import org.scalatest.time.SpanSugar
 import org.scalatest.{Matchers, WordSpec}
 

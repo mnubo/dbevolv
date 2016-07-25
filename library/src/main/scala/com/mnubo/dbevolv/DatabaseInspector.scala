@@ -1,6 +1,6 @@
 package com.mnubo.dbevolv
 
-import com.mnubo.app_util.Logging
+import com.mnubo.dbevolv.util.Logging
 import org.joda.time.format.ISODateTimeFormat
 
 object DatabaseInspector extends Logging {

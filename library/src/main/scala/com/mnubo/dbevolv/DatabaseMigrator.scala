@@ -3,7 +3,7 @@ package dbevolv
 
 import java.io.{FileFilter, File}
 
-import com.mnubo.app_util.Logging
+import com.mnubo.dbevolv.util.Logging
 import com.mnubo.dbevolv.util.MD5
 
 object DatabaseMigrator extends Logging {
@@ -18,7 +18,6 @@ object DatabaseMigrator extends Logging {
 
     log.info(s"Will upgrade $name to ${version.getOrElse("latest")} version.")
 
-    if (drop) config.connection.dropDatabase()
     migrate(MigrationContext(config.connection, name, version, skipSchemaVerification, applyUpgradesTwice))
   }
 

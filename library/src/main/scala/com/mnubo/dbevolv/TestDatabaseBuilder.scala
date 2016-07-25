@@ -1,26 +1,27 @@
 package com.mnubo
 package dbevolv
 
-import java.io.File
+import com.mnubo.dbevolv.docker.Container
+import com.mnubo.dbevolv.util.Logging
+import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 
-import com.mnubo.app_util.{Logging, MnuboConfiguration}
-import com.mnubo.dbevolv.docker.{Container, Docker}
-import com.typesafe.config.{ConfigFactory, ConfigParseOptions, ConfigValueFactory}
-
+import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
 object TestDatabaseBuilder extends Logging {
   def main(args: Array[String]) = { // Don't ask me why, but a weird bug in Scala compiler prevents me to extend App instead.
     val doPush = args.contains("push")
-    val defaultConfig = ConfigFactory.load(ConfigParseOptions.defaults().setClassLoader(getClass.getClassLoader))
-    val mnuboConfig = MnuboConfiguration.loadConfig(
-      generalConfig = ConfigFactory
-        .parseFile(new File("db.conf"))
-        .withFallback(defaultConfig),
-      env = "workstation",
-      configDirectory = "config"
-    )
-    val config = mnuboConfig.withValue("force_pull_verification_db", ConfigValueFactory.fromAnyRef(false))
+    val config= DbevolvConfiguration
+      .loadConfig("workstation")
+      .withValue("force_pull_verification_db", ConfigValueFactory.fromAnyRef(false))
+
+    val defaultTestConfig = ConfigFactory.parseString("has_instance_for_each_tenant=false").withFallback(config)
+
+    val testConfigs = config
+      .getConfigList("test_configurations")
+      .asScala
+      .map(_.withFallback(config)) :+ defaultTestConfig
+
     val dbKind = config.getString("database_kind")
     val dockerNamespace = if (config.hasPath("docker_namespace")) Some(config.getString("docker_namespace")) else None
     val dbNameProvider =
@@ -31,13 +32,8 @@ object TestDatabaseBuilder extends Logging {
         .asInstanceOf[DatabaseNameProvider]
 
     val schemaName = config.getString("schema_name")
-    val dbSchemaName = dbNameProvider.computeDatabaseName(schemaName, None)
-    val maybeSandboxNameProvider = dbNameProvider match {
-      case x:ZoneAwareDatabaseNameProvider=> Some(ZoneAwareDatabaseNameProvider.forSandbox())
-      case _ => None
-    }
+    val dbSchemaName = dbNameProvider.computeDatabaseName(schemaName, None, config)
 
-    val hasInstanceForEachTenant = config.getBoolean("has_instance_for_each_tenant")
     val imageName = s"test-$schemaName"
     val repositoryName = dockerNamespace.map(ns => s"$ns/$imageName").getOrElse(imageName)
     val db = Database.databases(dbKind)
@@ -59,10 +55,10 @@ object TestDatabaseBuilder extends Logging {
             // Execute rebase script on new db
             if(schemaVersion == availableMigrations.last) {
               log.info("Migrating to last version")
-              migrate(null, twice = false, container = fromRebaseContainer)
+              migrate(None, twice = false, config = defaultTestConfig, container = fromRebaseContainer)
             } else {
               log.info("Migrating to next version")
-              migrate(schemaVersion.version, twice = false, container = fromRebaseContainer)
+              migrate(Some(schemaVersion.version), twice = false, config = defaultTestConfig, container = fromRebaseContainer)
             }
 
             // Verify schemas are compatible
@@ -82,20 +78,11 @@ object TestDatabaseBuilder extends Logging {
           }
         }
 
-        migrate(schemaVersion.version, twice = true)
-        // Migrate sandbox if required
-        maybeSandboxNameProvider.foreach { sandboxNameProvider =>
-          migrate(schemaVersion.version, twice = true, maybeOtherSchemaName = Some(sandboxNameProvider.computeDatabaseName(schemaName, None)))
-        }
-
-        if(hasInstanceForEachTenant){
-          Seq("cars", "printers", "cows").foreach { tenant =>
-            migrateTenant(schemaVersion.version, tenant)
-            // Migrate sandbox if required
-            maybeSandboxNameProvider.foreach { sandboxNameProvider =>
-              migrateTenant(schemaVersion.version, tenant, maybeOtherSchemaName = Some(sandboxNameProvider.computeDatabaseName(schemaName, None)))
-            }
-          }
+        testConfigs.foreach { testConfig =>
+          if (testConfig.getBoolean("has_instance_for_each_tenant") && testConfig.hasPath("tenant"))
+            migrate(Some(schemaVersion.version), twice = true, config = config, tenant = Some(testConfig.getString("tenant")))
+          else
+            migrate(Some(schemaVersion.version), twice = true, config = config)
         }
 
         log.info(s"Commiting $dbKind $schemaName test instance to $repositoryName:${schemaVersion.version}...")
@@ -120,7 +107,7 @@ object TestDatabaseBuilder extends Logging {
 
       log.info(s"Testing rollback procedure...")
       val firstVersion = availableMigrations.head
-      migrate(firstVersion.version, twice = false)
+      migrate(Some(firstVersion.version), twice = false, config = defaultTestConfig)
 
       if (doPush) {
         images.foreach { imageId =>
@@ -140,33 +127,17 @@ object TestDatabaseBuilder extends Logging {
       container.remove()
     }
 
-    def migrateTenant(toVersion: String, tenant:String, container: Container = container, maybeOtherSchemaName:Option[String] = None) = {
+    def migrate(toVersion: Option[String], twice: Boolean, config: Config, tenant: Option[String] = None, container: Container = container) = {
       withConnection(container) { connection =>
         log.info(s"Connected to $container.")
-        val args = DbevolvArgsConfig(drop = false)
 
-        val maybeConfig = maybeOtherSchemaName.map(name => ConfigFactory.parseString(s"schema_name = $name").withFallback(config))
         DatabaseMigrator.migrate(DbMigrationConfig(
           connection,
-          args,
-          maybeConfig.getOrElse(config),
-          Option(tenant),
-          Option(toVersion)
-        ))
-      }
-    }
-
-    def migrate(toVersion: String, twice: Boolean, container: Container = container, maybeOtherSchemaName:Option[String] = None) = {
-      withConnection(container) { connection =>
-        log.info(s"Connected to $container.")
-        DatabaseMigrator.migrate(DbMigrationConfig(
-          connection,
-          maybeOtherSchemaName.getOrElse(dbSchemaName),
-          drop = false,
-          Option(toVersion),
+          config,
+          tenant,
+          toVersion,
           skipSchemaVerification = true,
-          applyUpgradesTwice = twice,
-          config
+          applyUpgradesTwice = twice
         ))
       }
     }

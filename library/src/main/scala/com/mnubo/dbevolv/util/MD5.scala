@@ -4,7 +4,6 @@ import java.io.File
 import java.nio.file.{Paths, Files}
 import java.security.MessageDigest
 
-import com.mnubo.app_util.Logging
 import com.mnubo.dbevolv.{Statement, ClassStatement, StatementFiles}
 
 object MD5 extends Logging {

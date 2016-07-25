@@ -4,7 +4,7 @@ package dbevolv
 import java.text.SimpleDateFormat
 import java.util.Date
 
-import com.mnubo.app_util.Logging
+import com.mnubo.dbevolv.util.Logging
 import com.mnubo.dbevolv.docker.{Container, Docker}
 import com.typesafe.config.Config
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthStatus

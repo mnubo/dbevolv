@@ -6,7 +6,7 @@ import java.util.Date
 
 import com.datastax.driver.core.exceptions.InvalidQueryException
 import com.datastax.driver.core.{Cluster, ConsistencyLevel, Session, SimpleStatement}
-import com.mnubo.app_util.Logging
+import com.mnubo.dbevolv.util.Logging
 import com.mnubo.dbevolv.docker.Container
 import com.typesafe.config.Config
 import org.joda.time.{DateTime, DateTimeZone}
