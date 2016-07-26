@@ -5,7 +5,7 @@ import java.nio.file.{Paths, Files}
 import java.security.MessageDigest
 import java.sql.{ResultSet, Connection, DriverManager}
 
-import com.mnubo._
+import com.mnubo.dbevolv.using
 import com.mnubo.dbevolv.docker.Docker
 
 import scala.annotation.tailrec
@@ -31,7 +31,7 @@ TaskKey[Unit]("check-mgr") := {
     SProcess(cmd) !
   }
 
-  case class Mysql() {
+  case class Mysql() extends AutoCloseable {
     val port = using(new ServerSocket(0))(_.getLocalPort)
 
     runShell("docker pull mnubo/mysql:5.6.31")

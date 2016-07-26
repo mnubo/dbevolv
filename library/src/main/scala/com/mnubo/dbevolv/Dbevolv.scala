@@ -1,6 +1,7 @@
 package com.mnubo
 package dbevolv
 
+import com.mnubo.dbevolv.docker.Docker
 import com.mnubo.dbevolv.util.Logging
 import com.typesafe.config.Config
 
@@ -71,25 +72,30 @@ object Dbevolv extends App with Logging {
       else
         Seq(None)
 
-    using(Database.databases(config.getString("database_kind")).openConnection(
-      schemaName,
-      config.getString("host"),
-      config.getInt("port"),
-      config.getString("username"),
-      config.getString("password"),
-      config.getString("create_database_statement"),
-      config
-    )) { connection =>
-      tenants.foreach { ns =>
-        val cfg = DbMigrationConfig(connection, config, ns, version.filter(_ != "latest"))
+    try {
+      using(Database.databases(config.getString("database_kind")).openConnection(
+        schemaName,
+        config.getString("host"),
+        config.getInt("port"),
+        config.getString("username"),
+        config.getString("password"),
+        config.getString("create_database_statement"),
+        config
+      )) { connection =>
+        tenants.foreach { ns =>
+          val cfg = DbMigrationConfig(connection, config, ns, version.filter(_ != "latest"))
 
-        argConfig.cmd match {
-          case Migrate =>
-            DatabaseMigrator.migrate(cfg)
-          case DisplayHistory =>
-            DatabaseInspector.displayHistory(cfg)
+          argConfig.cmd match {
+            case Migrate =>
+              DatabaseMigrator.migrate(cfg)
+            case DisplayHistory =>
+              DatabaseInspector.displayHistory(cfg)
+          }
         }
       }
+    }
+    finally {
+      Docker.client.close()
     }
   }
 }

@@ -165,7 +165,7 @@ class CassandraConnection(schemaName: String,
         CassandraDatabase.testDockerBaseImage.isStarted,
         CassandraDatabase.testDockerBaseImage.exposedPort,
         forcePull = forcePullVerificationDb,
-        additionalOptions = CassandraDatabase.testDockerBaseImage.additionalOptions
+        envVars = CassandraDatabase.testDockerBaseImage.envVars
       )
 
       log.info(s"Launching reference db in ${referenceDatabase.containerId}")

@@ -40,7 +40,7 @@ case class DatabaseDockerImage(name: String,
                                isStarted: (String, Container) => Boolean,
                                username: String = "",
                                password: String = "",
-                               additionalOptions: Option[String] = None,
+                               envVars: Set[String] = Set.empty,
                                flushCmd: Option[Seq[String]] = None)
 
 case class InstalledVersion(version: String, installedDate: DateTime, checksum: String)

@@ -1,7 +1,7 @@
 package com.mnubo
 package dbevolv
 
-import com.mnubo.dbevolv.docker.Container
+import com.mnubo.dbevolv.docker.{Container, Docker}
 import com.mnubo.dbevolv.util.Logging
 import com.typesafe.config.{Config, ConfigFactory, ConfigValueFactory}
 
@@ -93,7 +93,7 @@ object TestDatabaseBuilder extends Logging {
 
         if (doPush) {
           log.info(s"Publishing $dbKind $schemaName test instance to $repositoryName:${schemaVersion.version} ...")
-          container.push(s"$repositoryName:${schemaVersion.version}")
+          Docker.push(s"$repositoryName:${schemaVersion.version}")
         }
 
         imageId
@@ -102,7 +102,7 @@ object TestDatabaseBuilder extends Logging {
       if (doPush) {
         log.info(s"Tagging and pushing latest version...")
         container.tag(s"$repositoryName:latest")
-        container.push(s"$repositoryName:latest")
+        Docker.push(s"$repositoryName:latest")
       }
 
       log.info(s"Testing rollback procedure...")
@@ -112,7 +112,7 @@ object TestDatabaseBuilder extends Logging {
       if (doPush) {
         images.foreach { imageId =>
           log.info(s"Cleaning up image $imageId ...")
-          container.removeImage(imageId)
+          Docker.removeImage(imageId)
         }
       }
     }
@@ -125,6 +125,7 @@ object TestDatabaseBuilder extends Logging {
       log.info(s"Cleaning up container ${container.containerId} ...")
       container.stop()
       container.remove()
+      Docker.client.close()
     }
 
     def migrate(toVersion: Option[String], twice: Boolean, config: Config, tenant: Option[String] = None, container: Container = container) = {
