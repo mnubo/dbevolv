@@ -1,7 +1,9 @@
 import scala.xml.Group
 
+val fixedJerseyVersion = "2.22.2"
+
 val commonSettings = Seq(
-  version := "1.0.3",
+  version := "1.0.6",
 
   organization := "com.mnubo",
 
@@ -69,13 +71,18 @@ lazy val library = (project in file("library"))
     name := "dbevolv",
 
     libraryDependencies ++= Seq(
-      "com.typesafe"            %  "config"                 % "1.2.1",
       "com.datastax.cassandra"  %  "cassandra-driver-core"  % "3.0.0" % "provided",
       "org.elasticsearch"       %  "elasticsearch"          % "1.5.2" % "provided",
       "mysql"                   %  "mysql-connector-java"   % "5.1.35" % "provided",
+      "com.typesafe"            %  "config"                 % "1.2.1",
+      "com.spotify"             %  "docker-client"          % "5.0.2",
+      "org.glassfish.jersey.core" % "jersey-client" % fixedJerseyVersion, // Fixes https://github.com/spotify/docker-client/issues/405
+      "org.glassfish.jersey.media" % "jersey-media-json-jackson" % fixedJerseyVersion, // Fixes https://github.com/spotify/docker-client/issues/405
+      "org.glassfish.jersey.connectors" % "jersey-apache-connector" % fixedJerseyVersion, // Fixes https://github.com/spotify/docker-client/issues/405
       "joda-time"               %  "joda-time"              % "2.7",
       "io.spray"                %% "spray-json"             % "1.3.1",
       "com.github.scopt"        %% "scopt"                  % "3.3.0",
+      "ch.qos.logback"          %  "logback-classic"        % "1.1.3",
 
       "org.scalatest"           %% "scalatest"              % "2.2.6" % "test"
     ),

@@ -3,7 +3,7 @@ enablePlugins(DbevolvPlugin)
 import java.net.ServerSocket
 import org.apache.commons.io.FileUtils
 import java.security.MessageDigest
-import com.mnubo._
+import com.mnubo.dbevolv.using
 import com.mnubo.dbevolv.docker._
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthStatus
 import org.elasticsearch.client.transport.TransportClient
@@ -41,7 +41,7 @@ TaskKey[Unit]("check-mgr") := {
   val indexName = "elasticsearchdb"
   val typeName = "kv"
 
-  case class Elasticsearch() {
+  case class Elasticsearch() extends AutoCloseable {
     val esContainer = new Container(
       "mnubo/elasticsearch:1.5.2",
       isStarted _,

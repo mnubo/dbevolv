@@ -2,41 +2,50 @@ package com.mnubo.dbevolv.docker
 
 import java.io.File
 
-import com.mnubo.dbevolv.util.Logging
 import com.mnubo.dbevolv.DatabaseDockerImage
+import com.mnubo.dbevolv.util.Logging
+import com.spotify.docker.client.DockerClient.{ExecCreateParam, LogsParam, RemoveContainerParam}
+import com.spotify.docker.client.messages.{ContainerConfig, HostConfig}
 
-import scala.sys.process._
 import scala.annotation.tailrec
 
 class Container(imageName: String,
                 isStarted: (String, Container) => Boolean,
                 port: Int,
-                additionalOptions: Option[String] = None,
+                envVars: Set[String] = Set.empty,
                 forcePull: Boolean = true) extends Logging {
   import Container._
 
-  def this (descriptor: DatabaseDockerImage) = this(descriptor.name, descriptor.isStarted, descriptor.exposedPort, descriptor.additionalOptions, false)
+  def this (descriptor: DatabaseDockerImage) = this(descriptor.name, descriptor.isStarted, descriptor.exposedPort, descriptor.envVars, false)
 
-  private val versionedImageRegex = imageName.replace(":", "\\s+").r
-  private val options = additionalOptions.map(_ + " ").getOrElse("")
   private var lastImageId: String = null
 
-  if (forcePull || versionedImageRegex.findFirstIn("docker images".!!).isEmpty) {
+  if (forcePull || !Docker.images.contains(imageName)) {
     log.info(s"Pulling image $imageName.")
-    execShell(s"docker pull $imageName")
+    Docker.client.pull(imageName, Docker.authFor(imageName))
   }
   else
     log.info(s"The image $imageName already exists locally. Not pulling.")
 
-  val initialVolumes = s"-v /var/run/docker.sock:/var/run/docker.sock -v ${Docker.dockerExecutableLocation}:${Docker.dockerExecutableLocation}"
-  val optionalVolumes = List(
-    existsAsFile(s"${Docker.userHome}/.docker/config.json") -> s" -v ${Docker.userHome}/.docker:/root/.docker",
-    existsAsFile(s"${Docker.userHome}/.dockercfg") -> s" -v ${Docker.userHome}/.dockercfg:/root/.dockercfg"
-  )
-  val volumes = optionalVolumes.foldLeft(initialVolumes) { case (acc, (shouldMount, volume)) => if (shouldMount) acc + volume else acc }
+  val volumes =
+    if (existsAsFile(s"${Docker.userHome}/.docker/config.json"))
+      Seq(SocketVolume, s"${Docker.userHome}/.docker:/root/.docker")
+    else
+      Seq(SocketVolume)
 
-  val containerId = execShellAndRead(s"docker run -dt $volumes -P $options$imageName")
-  require(containerId.matches(Container.IdRegex), s"The container did not start correctly: '$containerId'\n")
+  private val creationInfo = Docker.client.createContainer(
+    ContainerConfig
+      .builder
+      .volumes(volumes: _*)
+      .image(imageName)
+      .hostConfig(HostConfig.builder.publishAllPorts(true).build)
+      .env(envVars.toSeq: _*)
+      .build
+  )
+
+  val containerId = creationInfo.id
+  Docker.client.startContainer(containerId)
+  private val inspectionInfo = Docker.client.inspectContainer(containerId)
 
   val exposedPort =
     if (Docker.isInContainer)
@@ -45,57 +54,57 @@ class Container(imageName: String,
       hostPort(port)
   val containerHost =
     if (Docker.isInContainer)
-      s"""docker inspect --format="{{.NetworkSettings.IPAddress}}" $containerId""".!!.trim
+      inspectionInfo.networkSettings.ipAddress
     else
       Docker.dockerHost
 
   waitStarted(isStarted)
 
   def hostPort(port: Int) =
-    Seq(
-      "docker",
-      "inspect",
-      s"""--format='{{(index (index .NetworkSettings.Ports "$port/tcp") 0).HostPort}}'""",
-      containerId
-    ).!!.trim.toInt
+    inspectionInfo
+      .networkSettings
+      .ports
+      .get(s"$port/tcp")
+      .get(0)
+      .hostPort
+      .toInt
 
   def stop() =
-    execShell(s"docker stop $containerId")
+    Docker.client.stopContainer(containerId, 5)
 
   def start() = {
-    val previousLog = execShellAndRead(s"docker logs $containerId")
+    val previousLog = logs
 
     def isStartedOnNewLogs(logs: String, container: Container) =
       isStarted(logs.replace(previousLog, ""), this)
 
-    execShell(s"docker start $containerId")
+    Docker.client.startContainer(containerId)
 
     waitStarted(isStartedOnNewLogs)
   }
 
   def commit(repository: String, tag: String): String = {
-    lastImageId =
-      execShellAndRead(s"docker commit -p $containerId $repository:$tag")
+    Docker.client.pauseContainer(containerId)
+    Docker.client.commitContainer(containerId, repository, tag, ContainerConfig.builder.build, "", "dbevolv")
+    Docker.client.unpauseContainer(containerId)
+    lastImageId = Docker.client.inspectContainer(containerId).image()
 
     lastImageId
   }
 
-  def exec(cmd: Seq[String]) =
-    execShellAndRead(s"docker exec -i $containerId ${cmd.mkString(" ")}")
-
-  def push(tag: String) =
-    execShell(s"docker push $tag")
+  def exec(cmd: Seq[String]) = {
+    val execId = Docker.client.execCreate(containerId, cmd.toArray, ExecCreateParam.attachStdout, ExecCreateParam.attachStderr)
+    Docker.client.execStart(execId).readFully
+  }
 
   def tag(tag: String) =
-    execShell(s"docker tag $lastImageId $tag")
+    Docker.client.tag(lastImageId, tag)
 
   def remove() =
-    execShell(s"docker rm -v $containerId")
+    Docker.client.removeContainer(containerId, RemoveContainerParam.removeVolumes())
 
-  def removeImage(id: String) =
-    execShell(s"docker rmi $id")
-
-  def logs = execShellAndRead(s"docker logs $containerId")
+  def logs =
+    Docker.client.logs(containerId, LogsParam.stdout, LogsParam.stderr).readFully()
 
   @tailrec
   private def waitStarted(isStarted: (String, Container) => Boolean, startTS: Long = System.currentTimeMillis()): Unit = {
@@ -117,26 +126,6 @@ class Container(imageName: String,
 }
 
 object Container extends Logging {
-  private val IdRegex = "[a-f0-9]+"
   private val FiveMinMaxWaitTimeForStartInMS = 5 * 60 * 1000L
-
-  private def execShell(cmd: String) = {
-    log.info(cmd)
-    require(cmd.! == 0, s"Cannot execute [$cmd].")
-  }
-
-  private def execShellAndRead(cmd: String) = {
-    val out = new StringBuilder
-    val err = new StringBuilder
-    val l = ProcessLogger(o => out.append(o + "\n"), e => err.append(e) + "\n")
-
-    if (!cmd.startsWith("docker logs"))
-      log.info(cmd)
-
-    Process(cmd) ! l
-
-    out.toString().trim + err.toString().trim
-  }
-
-
+  private val SocketVolume = "/var/run/docker.sock:/var/run/docker.sock"
 }

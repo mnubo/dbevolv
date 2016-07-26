@@ -39,7 +39,7 @@ object MysqlDatabase extends Database {
       isStarted         = (log, _) => log.contains("socket: '/var/run/mysqld/mysqld.sock'  port: 3306"),
       username          = "root",
       password          = "root",
-      additionalOptions = Some("-e MYSQL_ROOT_PASSWORD=root")
+      envVars           = Set("MYSQL_ROOT_PASSWORD=root")
     )
 }
 
@@ -149,7 +149,7 @@ class MysqlConnection(schemaName: String,
         MysqlDatabase.testDockerBaseImage.isStarted,
         MysqlDatabase.testDockerBaseImage.exposedPort,
         forcePull = forcePullVerificationDb,
-        additionalOptions = MysqlDatabase.testDockerBaseImage.additionalOptions
+        envVars = MysqlDatabase.testDockerBaseImage.envVars
       )
 
       try {

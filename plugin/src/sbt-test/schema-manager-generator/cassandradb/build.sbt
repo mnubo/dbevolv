@@ -8,7 +8,7 @@ import java.sql.{Connection, DriverManager, ResultSet}
 import java.util.UUID
 
 import com.datastax.driver.core.{Cluster, Row}
-import com.mnubo._
+import com.mnubo.dbevolv.using
 import com.mnubo.dbevolv.docker.Docker
 import com.mnubo.dbevolv.docker.Container
 
@@ -47,7 +47,7 @@ TaskKey[Unit]("check-mgr") := {
     SProcess(cmd) !
   }
 
-  case class Cassandra() {
+  case class Cassandra() extends AutoCloseable {
     val cassandraContainer = new Container(
       "mnubo/cassandra:2.1",
       (logs, _) => logs.contains("Listening for thrift clients...") || logs.contains("Starting listening for CQL clients"),
