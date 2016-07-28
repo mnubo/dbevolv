@@ -44,6 +44,8 @@ val commonSettings = Seq(
 
   pomIncludeRepository := { _ => false },
 
+  crossVersion := CrossVersion.binary,
+
   publishMavenStyle := true,
 
   publishTo := {
