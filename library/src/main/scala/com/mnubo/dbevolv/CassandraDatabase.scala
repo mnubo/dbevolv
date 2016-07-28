@@ -42,7 +42,7 @@ object CassandraDatabase extends Database {
     )
 }
 
-class CassandraConnection(schemaName: String,
+class CassandraConnection(computedDbName: String,
                           hosts: String,
                           port: Int,
                           createDatabaseStatement: String,
@@ -65,6 +65,7 @@ class CassandraConnection(schemaName: String,
   private val session = cluster.connect()
   private val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ")
   private var keyspace: String = null
+  private val schemaName: String = config.getString("schema_name")
 
   override def setActiveSchema(keyspace: String) {
     this.keyspace = keyspace
@@ -161,7 +162,7 @@ class CassandraConnection(schemaName: String,
       val currentVersion = installed.last
 
       val referenceDatabase = new Container(
-        CassandraDatabase.testDockerImageName(dockerNamespace, schemaName, currentVersion),
+        CassandraDatabase.testDockerImageName(dockerNamespace, computedDbName, currentVersion),
         CassandraDatabase.testDockerBaseImage.isStarted,
         CassandraDatabase.testDockerBaseImage.exposedPort,
         forcePull = forcePullVerificationDb,
@@ -171,7 +172,7 @@ class CassandraConnection(schemaName: String,
       log.info(s"Launching reference db in ${referenceDatabase.containerId}")
 
       try {
-        using(new CassandraConnection(schemaName, referenceDatabase.containerHost, referenceDatabase.exposedPort, createDatabaseStatement, config)) { referenceDatabaseConnection =>
+        using(new CassandraConnection(computedDbName, referenceDatabase.containerHost, referenceDatabase.exposedPort, createDatabaseStatement, config)) { referenceDatabaseConnection =>
           referenceDatabaseConnection.setActiveSchema(schemaName)
           isSameSchema(referenceDatabaseConnection)
         }

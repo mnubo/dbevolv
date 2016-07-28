@@ -43,7 +43,7 @@ object MysqlDatabase extends Database {
     )
 }
 
-class MysqlConnection(schemaName: String,
+class MysqlConnection(computedDbName: String,
                       host: String,
                       port: Int,
                       userName: String,
@@ -58,6 +58,7 @@ class MysqlConnection(schemaName: String,
   private val df = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
   df.setTimeZone(TimeZone.getTimeZone("UTC"))
   private var database: String = null
+  private val schemaName: String = config.getString("schema_name")
 
   override def setActiveSchema(database: String) {
     this.database = database
@@ -145,7 +146,7 @@ class MysqlConnection(schemaName: String,
       val currentVersion = installed.last
 
       val referenceDatabase = new Container(
-        MysqlDatabase.testDockerImageName(dockerNamespace, schemaName, currentVersion),
+        MysqlDatabase.testDockerImageName(dockerNamespace, computedDbName, currentVersion),
         MysqlDatabase.testDockerBaseImage.isStarted,
         MysqlDatabase.testDockerBaseImage.exposedPort,
         forcePull = forcePullVerificationDb,
@@ -154,7 +155,7 @@ class MysqlConnection(schemaName: String,
 
       try {
         using(new MysqlConnection(
-          schemaName,
+          computedDbName,
           referenceDatabase.containerHost,
           referenceDatabase.exposedPort,
           MysqlDatabase.testDockerBaseImage.username,

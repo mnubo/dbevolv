@@ -71,11 +71,12 @@ object ElasticsearchDatabase extends Database {
     }).toOption.getOrElse(false)
 }
 
-class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, config: Config) extends DatabaseConnection with Logging {
+class ElasticsearchConnection(computedDbName: String, hosts: String, port: Int, config: Config) extends DatabaseConnection with Logging {
   private val client = ElasticsearchDatabase.newClient(hosts, port)
   private val forcePullVerificationDb = config.getBoolean("force_pull_verification_db")
   private val dockerNamespace = if (config.hasPath("docker_namespace")) Some(config.getString("docker_namespace")) else None
-  
+
+  private val schemaName: String = config.getString("schema_name")
   private val versionTypeName = s"${schemaName}_version"
 
   private val df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZZ")
@@ -225,14 +226,14 @@ class ElasticsearchConnection(schemaName: String, hosts: String, port: Int, conf
       val currentVersion = installed.last
 
       val referenceDatabase = new Container(
-        ElasticsearchDatabase.testDockerImageName(dockerNamespace, schemaName, currentVersion),
+        ElasticsearchDatabase.testDockerImageName(dockerNamespace, computedDbName, currentVersion),
         ElasticsearchDatabase.testDockerBaseImage.isStarted,
         ElasticsearchDatabase.testDockerBaseImage.exposedPort,
         forcePull = forcePullVerificationDb
       )
 
       try {
-        using(new ElasticsearchConnection(schemaName, referenceDatabase.containerHost, referenceDatabase.exposedPort, config)) { referenceDatabaseConnection =>
+        using(new ElasticsearchConnection(computedDbName, referenceDatabase.containerHost, referenceDatabase.exposedPort, config)) { referenceDatabaseConnection =>
           referenceDatabaseConnection.setActiveSchema(schemaName)
           isSameSchema(referenceDatabaseConnection)
         }
