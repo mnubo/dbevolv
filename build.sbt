@@ -38,7 +38,7 @@ val commonSettings = Seq(
       </developers>
   )},
 
-  sonatypeProfileName := "mnuboci",
+  sonatypeProfileName := "com.mnubo",
 
   resolvers ++= Seq(Opts.resolver.sonatypeSnapshots, Opts.resolver.sonatypeReleases),
 
