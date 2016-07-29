@@ -3,7 +3,7 @@ import scala.xml.Group
 val fixedJerseyVersion = "2.22.2"
 
 val commonSettings = Seq(
-  version := "1.0.6",
+  version := "1.0.7",
 
   organization := "com.mnubo",
 

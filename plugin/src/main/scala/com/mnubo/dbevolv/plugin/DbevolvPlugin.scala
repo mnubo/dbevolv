@@ -111,12 +111,22 @@ object DbevolvPlugin extends AutoPlugin {
       inquireVersions,
       runTest,
       setReleaseVersion,
-      publishArtifacts,
+      dockerOnlyPublishArtifacts,
       tagRelease,
       setNextVersion,
       commitNextVersion,
       pushChanges
     )
+  )
+
+  import Utilities._
+  private lazy val dockerOnlyPublishArtifacts = ReleaseStep(
+    action = { st: State =>
+      val extracted = st.extract
+      val ref = extracted.get(thisProjectRef)
+      extracted.runAggregated(releasePublishArtifactsAction in Global in ref, st)
+    },
+    enableCrossBuild = true
   )
 
   private lazy val setupRemoteTracking: ReleaseStep = ReleaseStep(

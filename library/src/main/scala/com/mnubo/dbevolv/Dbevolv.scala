@@ -59,15 +59,12 @@ object Dbevolv extends App with Logging {
       if (argConfig.tenantSpecified)
         Seq(argConfig.tenant)
       else if (hasInstanceForEachTenant) {
-        val tenantRepository =
-          getClass
+        using(getClass
             .getClassLoader
             .loadClass(config.getString("tenant_repository_class"))
             .getConstructor(classOf[Config])
             .newInstance(config)
-            .asInstanceOf[TenantRepository]
-
-        tenantRepository.fetchTenants.map(Some(_))
+            .asInstanceOf[TenantRepository]) { _.fetchTenants.map(Some(_)) }
       }
       else
         Seq(None)
