@@ -73,7 +73,7 @@ class Docker(targetRegistry: Option[String]) extends Logging with AutoCloseable 
       .flatMap(_.repoTags().asScala)
 
   def removeImage(id: String) =
-    client.removeImage(id)
+    client.removeImage(id, true, false)
 
   def push(tag: String) =
     client.push(tag)
