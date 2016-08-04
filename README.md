@@ -134,7 +134,7 @@ The `build.properties` file should contain which SBT version to use:
 
 The `plugins.sbt` should point to this plugin on Artifactory (the funky piece of code make sure to always use the latest version available from Artifactory):
 
-    addSbtPlugin("com.mnubo" % "dbevolv-sbt-plugin" % "1.0.0")
+    addSbtPlugin("com.mnubo" % "dbevolv-sbt-plugin" % "1.0.9")
 
 The directories names in `/migrations` constitute the migration versions. Migrations will be applied in the lexical order of those directory names. Ex: when asking dbevolv to upgrade to version '0002' in the above example, '0001' will be executed first, then '0002'.
 
