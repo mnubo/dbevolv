@@ -9,31 +9,32 @@ import com.spotify.docker.client.messages.{ContainerConfig, HostConfig}
 
 import scala.annotation.tailrec
 
-class Container(imageName: String,
+class Container(docker: Docker,
+                imageName: String,
                 isStarted: (String, Container) => Boolean,
                 port: Int,
                 envVars: Set[String] = Set.empty,
                 forcePull: Boolean = true) extends Logging {
   import Container._
 
-  def this (descriptor: DatabaseDockerImage) = this(descriptor.name, descriptor.isStarted, descriptor.exposedPort, descriptor.envVars, false)
+  def this (docker: Docker, descriptor: DatabaseDockerImage) = this(docker, descriptor.name, descriptor.isStarted, descriptor.exposedPort, descriptor.envVars, false)
 
   private var lastImageId: String = null
 
-  if (forcePull || !Docker.images.contains(imageName)) {
+  if (forcePull || !docker.images.contains(imageName)) {
     log.info(s"Pulling image $imageName.")
-    Docker.client.pull(imageName, Docker.authFor(imageName))
+    docker.client.pull(imageName, docker.authFor(imageName))
   }
   else
     log.info(s"The image $imageName already exists locally. Not pulling.")
 
   val volumes =
-    if (existsAsFile(s"${Docker.userHome}/.docker/config.json"))
-      Seq(SocketVolume, s"${Docker.userHome}/.docker:/root/.docker")
+    if (existsAsFile(s"${docker.userHome}/.docker/config.json"))
+      Seq(SocketVolume, s"${docker.userHome}/.docker:/root/.docker")
     else
       Seq(SocketVolume)
 
-  private val creationInfo = Docker.client.createContainer(
+  private val creationInfo = docker.client.createContainer(
     ContainerConfig
       .builder
       .volumes(volumes: _*)
@@ -44,19 +45,19 @@ class Container(imageName: String,
   )
 
   val containerId = creationInfo.id
-  Docker.client.startContainer(containerId)
-  private val inspectionInfo = Docker.client.inspectContainer(containerId)
+  docker.client.startContainer(containerId)
+  private val inspectionInfo = docker.client.inspectContainer(containerId)
 
   val exposedPort =
-    if (Docker.isInContainer)
+    if (docker.isInContainer)
       port
     else
       hostPort(port)
   val containerHost =
-    if (Docker.isInContainer)
+    if (docker.isInContainer)
       inspectionInfo.networkSettings.ipAddress
     else
-      Docker.dockerHost
+      docker.dockerHost
 
   waitStarted(isStarted)
 
@@ -70,7 +71,7 @@ class Container(imageName: String,
       .toInt
 
   def stop() =
-    Docker.client.stopContainer(containerId, 5)
+    docker.client.stopContainer(containerId, 5)
 
   def start() = {
     val previousLog = logs
@@ -78,33 +79,33 @@ class Container(imageName: String,
     def isStartedOnNewLogs(logs: String, container: Container) =
       isStarted(logs.replace(previousLog, ""), this)
 
-    Docker.client.startContainer(containerId)
+    docker.client.startContainer(containerId)
 
     waitStarted(isStartedOnNewLogs)
   }
 
   def commit(repository: String, tag: String): String = {
-    Docker.client.pauseContainer(containerId)
-    Docker.client.commitContainer(containerId, repository, tag, ContainerConfig.builder.build, "", "dbevolv")
-    Docker.client.unpauseContainer(containerId)
-    lastImageId = Docker.client.inspectContainer(containerId).image()
+    docker.client.pauseContainer(containerId)
+    docker.client.commitContainer(containerId, repository, tag, ContainerConfig.builder.build, "", "dbevolv")
+    docker.client.unpauseContainer(containerId)
+    lastImageId = docker.client.inspectContainer(containerId).image()
 
     lastImageId
   }
 
   def exec(cmd: Seq[String]) = {
-    val execId = Docker.client.execCreate(containerId, cmd.toArray, ExecCreateParam.attachStdout, ExecCreateParam.attachStderr)
-    Docker.client.execStart(execId).readFully
+    val execId = docker.client.execCreate(containerId, cmd.toArray, ExecCreateParam.attachStdout, ExecCreateParam.attachStderr)
+    docker.client.execStart(execId).readFully
   }
 
   def tag(tag: String) =
-    Docker.client.tag(lastImageId, tag)
+    docker.client.tag(lastImageId, tag)
 
   def remove() =
-    Docker.client.removeContainer(containerId, RemoveContainerParam.removeVolumes())
+    docker.client.removeContainer(containerId, RemoveContainerParam.removeVolumes())
 
   def logs =
-    Docker.client.logs(containerId, LogsParam.stdout, LogsParam.stderr).readFully()
+    docker.client.logs(containerId, LogsParam.stdout, LogsParam.stderr).readFully()
 
   @tailrec
   private def waitStarted(isStarted: (String, Container) => Boolean, startTS: Long = System.currentTimeMillis()): Unit = {

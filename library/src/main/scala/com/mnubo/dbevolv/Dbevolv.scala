@@ -69,8 +69,9 @@ object Dbevolv extends App with Logging {
       else
         Seq(None)
 
-    try {
+    using(new Docker(if (config.hasPath("docker_namespace")) Some(config.getString("docker_namespace")) else None )) { docker =>
       using(Database.databases(config.getString("database_kind")).openConnection(
+        docker,
         schemaName,
         config.getString("host"),
         config.getInt("port"),
@@ -90,9 +91,6 @@ object Dbevolv extends App with Logging {
           }
         }
       }
-    }
-    finally {
-      Docker.client.close()
     }
   }
 }

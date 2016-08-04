@@ -23,7 +23,8 @@ object ElasticsearchDatabase extends Database {
   val name = "elasticsearch"
   private val isStartedRegex = """recovered \[\d+\] indices into cluster_state""".r
 
-  override def openConnection(schemaName: String,
+  override def openConnection(docker: Docker,
+                              schemaName: String,
                               hosts: String,
                               port: Int,
                               userName: String,
@@ -31,6 +32,7 @@ object ElasticsearchDatabase extends Database {
                               createDatabaseStatement: String,
                               config: Config): DatabaseConnection =
     new ElasticsearchConnection(
+      docker,
       schemaName,
       hosts,
       if (port > 0) port else 9300,
@@ -71,7 +73,11 @@ object ElasticsearchDatabase extends Database {
     }).toOption.getOrElse(false)
 }
 
-class ElasticsearchConnection(computedDbName: String, hosts: String, port: Int, config: Config) extends DatabaseConnection with Logging {
+class ElasticsearchConnection(docker: Docker,
+                              computedDbName: String,
+                              hosts: String,
+                              port: Int,
+                              config: Config) extends DatabaseConnection with Logging {
   private val client = ElasticsearchDatabase.newClient(hosts, port)
   private val forcePullVerificationDb = config.getBoolean("force_pull_verification_db")
   private val dockerNamespace = if (config.hasPath("docker_namespace")) Some(config.getString("docker_namespace")) else None
@@ -226,6 +232,7 @@ class ElasticsearchConnection(computedDbName: String, hosts: String, port: Int, 
       val currentVersion = installed.last
 
       val referenceDatabase = new Container(
+        docker,
         ElasticsearchDatabase.testDockerImageName(dockerNamespace, computedDbName, currentVersion),
         ElasticsearchDatabase.testDockerBaseImage.isStarted,
         ElasticsearchDatabase.testDockerBaseImage.exposedPort,
@@ -233,7 +240,7 @@ class ElasticsearchConnection(computedDbName: String, hosts: String, port: Int, 
       )
 
       try {
-        using(new ElasticsearchConnection(computedDbName, referenceDatabase.containerHost, referenceDatabase.exposedPort, config)) { referenceDatabaseConnection =>
+        using(new ElasticsearchConnection(docker, computedDbName, referenceDatabase.containerHost, referenceDatabase.exposedPort, config)) { referenceDatabaseConnection =>
           referenceDatabaseConnection.setActiveSchema(schemaName)
           isSameSchema(referenceDatabaseConnection)
         }

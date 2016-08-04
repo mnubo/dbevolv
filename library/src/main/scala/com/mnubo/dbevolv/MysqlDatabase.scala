@@ -16,7 +16,8 @@ import scala.util.control.NonFatal
 object MysqlDatabase extends Database {
   val name = "mysql"
 
-  override def openConnection(schemaName: String,
+  override def openConnection(docker: Docker,
+                              schemaName: String,
                               host: String,
                               port: Int,
                               userName: String,
@@ -24,6 +25,7 @@ object MysqlDatabase extends Database {
                               createDatabaseStatement: String,
                               config: Config): DatabaseConnection =
     new MysqlConnection(
+      docker,
       schemaName,
       host,
       if (port > 0) port else 3306,
@@ -43,7 +45,8 @@ object MysqlDatabase extends Database {
     )
 }
 
-class MysqlConnection(computedDbName: String,
+class MysqlConnection(docker: Docker,
+                      computedDbName: String,
                       host: String,
                       port: Int,
                       userName: String,
@@ -146,6 +149,7 @@ class MysqlConnection(computedDbName: String,
       val currentVersion = installed.last
 
       val referenceDatabase = new Container(
+        docker,
         MysqlDatabase.testDockerImageName(dockerNamespace, computedDbName, currentVersion),
         MysqlDatabase.testDockerBaseImage.isStarted,
         MysqlDatabase.testDockerBaseImage.exposedPort,
@@ -155,6 +159,7 @@ class MysqlConnection(computedDbName: String,
 
       try {
         using(new MysqlConnection(
+          docker,
           computedDbName,
           referenceDatabase.containerHost,
           referenceDatabase.exposedPort,

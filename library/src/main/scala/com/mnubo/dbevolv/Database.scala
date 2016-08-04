@@ -2,13 +2,14 @@ package com.mnubo.dbevolv
 
 import java.io.Closeable
 
-import com.mnubo.dbevolv.docker.Container
+import com.mnubo.dbevolv.docker.{Container, Docker}
 import com.typesafe.config.Config
 import org.joda.time.DateTime
 
 trait Database {
   def name: String
-  def openConnection(schemaName: String,
+  def openConnection(docker: Docker,
+                     schemaName: String,
                      host: String,
                      port: Int,
                      userName: String,

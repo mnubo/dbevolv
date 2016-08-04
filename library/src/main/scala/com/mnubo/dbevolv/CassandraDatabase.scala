@@ -7,7 +7,7 @@ import java.util.Date
 import com.datastax.driver.core.exceptions.InvalidQueryException
 import com.datastax.driver.core.{Cluster, ConsistencyLevel, Session, SimpleStatement}
 import com.mnubo.dbevolv.util.Logging
-import com.mnubo.dbevolv.docker.Container
+import com.mnubo.dbevolv.docker.{Container, Docker}
 import com.typesafe.config.Config
 import org.joda.time.{DateTime, DateTimeZone}
 
@@ -18,7 +18,8 @@ import scala.util.control.NonFatal
 object CassandraDatabase extends Database {
   val name = "cassandra"
 
-  override def openConnection(schemaName: String,
+  override def openConnection(docker: Docker,
+                              schemaName: String,
                               hosts: String,
                               port: Int,
                               userName: String,
@@ -26,6 +27,7 @@ object CassandraDatabase extends Database {
                               createDatabaseStatement: String,
                               config: Config): DatabaseConnection =
     new CassandraConnection(
+      docker,
       schemaName,
       hosts,
       if (port > 0) port else 9042,
@@ -42,7 +44,8 @@ object CassandraDatabase extends Database {
     )
 }
 
-class CassandraConnection(computedDbName: String,
+class CassandraConnection(docker: Docker,
+                          computedDbName: String,
                           hosts: String,
                           port: Int,
                           createDatabaseStatement: String,
@@ -162,6 +165,7 @@ class CassandraConnection(computedDbName: String,
       val currentVersion = installed.last
 
       val referenceDatabase = new Container(
+        docker,
         CassandraDatabase.testDockerImageName(dockerNamespace, computedDbName, currentVersion),
         CassandraDatabase.testDockerBaseImage.isStarted,
         CassandraDatabase.testDockerBaseImage.exposedPort,
@@ -172,7 +176,7 @@ class CassandraConnection(computedDbName: String,
       log.info(s"Launching reference db in ${referenceDatabase.containerId}")
 
       try {
-        using(new CassandraConnection(computedDbName, referenceDatabase.containerHost, referenceDatabase.exposedPort, createDatabaseStatement, config)) { referenceDatabaseConnection =>
+        using(new CassandraConnection(docker, computedDbName, referenceDatabase.containerHost, referenceDatabase.exposedPort, createDatabaseStatement, config)) { referenceDatabaseConnection =>
           referenceDatabaseConnection.setActiveSchema(schemaName)
           isSameSchema(referenceDatabaseConnection)
         }

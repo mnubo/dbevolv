@@ -12,7 +12,7 @@ import scala.collection.JavaConverters._
 import scala.io.Source
 import scala.util.Try
 
-object Docker extends Logging {
+class Docker(targetRegistry: Option[String]) extends Logging with AutoCloseable {
   private val HostParseRegex = """\d+\.[0-9\.]+""".r
   private val RepositoryRegex = """(([^/]+)/)?[^:]+(.+)?""".r
   private val hostVar = System.getenv("DOCKER_HOST")
@@ -61,7 +61,10 @@ object Docker extends Logging {
       auth <- auths.get(serverName)
     } yield auth).orNull
 
-  val client = DefaultDockerClient.fromEnv.build
+  val client =
+    targetRegistry
+      .map(serverUrl => DefaultDockerClient.fromEnv.authConfig(auths(serverUrl)).build)
+      .getOrElse(DefaultDockerClient.fromEnv.build)
 
   def images =
     client
@@ -70,14 +73,16 @@ object Docker extends Logging {
       .flatMap(_.repoTags().asScala)
 
   def removeImage(id: String) =
-    Docker.client.removeImage(id)
+    client.removeImage(id)
 
   def push(tag: String) =
-    Docker.client.push(tag)
+    client.push(tag)
 
   private def existsAsFile(path: String) = {
     val f = new File(path)
     f.exists && f.isFile
   }
 
+  override def close() =
+    client.close()
 }

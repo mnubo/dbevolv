@@ -38,120 +38,123 @@ object TestDatabaseBuilder extends Logging {
     val repositoryName = dockerNamespace.map(ns => s"$ns/$imageName").getOrElse(imageName)
     val db = Database.databases(dbKind)
 
-    log.info(s"Starting a fresh test $dbKind $schemaName instance ...")
-    val container = new Container(db.testDockerBaseImage)
+    using(new Docker(if (config.hasPath("docker_namespace")) Some(config.getString("docker_namespace")) else None )) { docker =>
+      log.info(s"Starting a fresh test $dbKind $schemaName instance ...")
+      val container = new Container(docker, db.testDockerBaseImage)
 
-    try {
-      val availableMigrations = DatabaseMigrator.getAvailableMigrations
+      try {
+        val availableMigrations = DatabaseMigrator.getAvailableMigrations
 
-      log.info(s"Creating and migrating test database '$dbSchemaName' to latest version ...")
-      val images = availableMigrations.map { schemaVersion =>
-        if (schemaVersion.isRebase && schemaVersion != availableMigrations.head) {
-          // Verify the rebase before we migrate the ref db to the latest version
-          log.info(s"Verifying rebase script ${schemaVersion.version}")
-          val fromRebaseContainer = new Container(db.testDockerBaseImage)
+        log.info(s"Creating and migrating test database '$dbSchemaName' to latest version ...")
+        val images = availableMigrations.map { schemaVersion =>
+          if (schemaVersion.isRebase && schemaVersion != availableMigrations.head) {
+            // Verify the rebase before we migrate the ref db to the latest version
+            log.info(s"Verifying rebase script ${schemaVersion.version}")
+            val fromRebaseContainer = new Container(docker, db.testDockerBaseImage)
 
-          try {
-            // Execute rebase script on new db
-            if(schemaVersion == availableMigrations.last) {
-              log.info("Migrating to last version")
-              migrate(None, twice = false, config = defaultTestConfig, container = fromRebaseContainer)
-            } else {
-              log.info("Migrating to next version")
-              migrate(Some(schemaVersion.version), twice = false, config = defaultTestConfig, container = fromRebaseContainer)
-            }
+            try {
+              // Execute rebase script on new db
+              if (schemaVersion == availableMigrations.last) {
+                log.info("Migrating to last version")
+                migrate(None, twice = false, config = defaultTestConfig, container = fromRebaseContainer)
+              } else {
+                log.info("Migrating to next version")
+                migrate(Some(schemaVersion.version), twice = false, config = defaultTestConfig, container = fromRebaseContainer)
+              }
 
-            // Verify schemas are compatible
-            withConnection(fromRebaseContainer) { fromConnection =>
-              fromConnection.setActiveSchema(dbSchemaName)
+              // Verify schemas are compatible
+              withConnection(fromRebaseContainer) { fromConnection =>
+                fromConnection.setActiveSchema(dbSchemaName)
 
-              withConnection(container) { connection =>
-                connection.setActiveSchema(dbSchemaName)
-                if (!connection.isSameSchema(fromConnection))
-                  throw new Exception(s"Rebase script for version ${schemaVersion.version} is not compatible with previous version schema")
+                withConnection(container) { connection =>
+                  connection.setActiveSchema(dbSchemaName)
+                  if (!connection.isSameSchema(fromConnection))
+                    throw new Exception(s"Rebase script for version ${schemaVersion.version} is not compatible with previous version schema")
+                }
               }
             }
+            finally {
+              try fromRebaseContainer.stop()
+              finally fromRebaseContainer.remove()
+            }
           }
-          finally {
-            try fromRebaseContainer.stop()
-            finally fromRebaseContainer.remove()
+
+          testConfigs.foreach { testConfig =>
+            if (testConfig.getBoolean("has_instance_for_each_tenant") && testConfig.hasPath("tenant"))
+              migrate(Some(schemaVersion.version), twice = true, config = config, tenant = Some(testConfig.getString("tenant")))
+            else
+              migrate(Some(schemaVersion.version), twice = true, config = config)
           }
-        }
 
-        testConfigs.foreach { testConfig =>
-          if (testConfig.getBoolean("has_instance_for_each_tenant") && testConfig.hasPath("tenant"))
-            migrate(Some(schemaVersion.version), twice = true, config = config, tenant = Some(testConfig.getString("tenant")))
-          else
-            migrate(Some(schemaVersion.version), twice = true, config = config)
-        }
+          log.info(s"Commiting $dbKind $schemaName test instance to $repositoryName:${schemaVersion.version}...")
+          db.testDockerBaseImage.flushCmd.foreach { cmd =>
+            container.exec(cmd)
+          }
+          val imageId = container.commit(repositoryName, schemaVersion.version)
 
-        log.info(s"Commiting $dbKind $schemaName test instance to $repositoryName:${schemaVersion.version}...")
-        db.testDockerBaseImage.flushCmd.foreach { cmd =>
-          container.exec(cmd)
+          if (doPush) {
+            log.info(s"Publishing $dbKind $schemaName test instance to $repositoryName:${schemaVersion.version} ...")
+            docker.push(s"$repositoryName:${schemaVersion.version}")
+          }
+
+          imageId
         }
-        val imageId = container.commit(repositoryName, schemaVersion.version)
 
         if (doPush) {
-          log.info(s"Publishing $dbKind $schemaName test instance to $repositoryName:${schemaVersion.version} ...")
-          Docker.push(s"$repositoryName:${schemaVersion.version}")
+          log.info(s"Tagging and pushing latest version...")
+          container.tag(s"$repositoryName:latest")
+          docker.push(s"$repositoryName:latest")
         }
 
-        imageId
-      }
+        log.info(s"Testing rollback procedure...")
+        val firstVersion = availableMigrations.head
+        migrate(Some(firstVersion.version), twice = false, config = defaultTestConfig)
 
-      if (doPush) {
-        log.info(s"Tagging and pushing latest version...")
-        container.tag(s"$repositoryName:latest")
-        Docker.push(s"$repositoryName:latest")
-      }
-
-      log.info(s"Testing rollback procedure...")
-      val firstVersion = availableMigrations.head
-      migrate(Some(firstVersion.version), twice = false, config = defaultTestConfig)
-
-      if (doPush) {
-        images.foreach { imageId =>
-          log.info(s"Cleaning up image $imageId ...")
-          Docker.removeImage(imageId)
+        if (doPush) {
+          images.foreach { imageId =>
+            log.info(s"Cleaning up image $imageId ...")
+            docker.removeImage(imageId)
+          }
         }
       }
-    }
-    catch {
-      case NonFatal(ex) =>
-        log.error(s"Test database build failed", ex)
-        throw ex
-    }
-    finally {
-      log.info(s"Cleaning up container ${container.containerId} ...")
-      container.stop()
-      container.remove()
-      Docker.client.close()
-    }
-
-    def migrate(toVersion: Option[String], twice: Boolean, config: Config, tenant: Option[String] = None, container: Container = container) = {
-      withConnection(container) { connection =>
-        log.info(s"Connected to $container.")
-
-        DatabaseMigrator.migrate(DbMigrationConfig(
-          connection,
-          config,
-          tenant,
-          toVersion,
-          skipSchemaVerification = true,
-          applyUpgradesTwice = twice
-        ))
+      catch {
+        case NonFatal(ex) =>
+          log.error(s"Test database build failed", ex)
+          throw ex
       }
+      finally {
+        log.info(s"Cleaning up container ${container.containerId} ...")
+        container.stop()
+        container.remove()
+      }
+
+      def migrate(toVersion: Option[String], twice: Boolean, config: Config, tenant: Option[String] = None, container: Container = container) = {
+        withConnection(container) { connection =>
+          log.info(s"Connected to $container.")
+
+          DatabaseMigrator.migrate(DbMigrationConfig(
+            connection,
+            config,
+            tenant,
+            toVersion,
+            skipSchemaVerification = true,
+            applyUpgradesTwice = twice
+          ))
+        }
+      }
+
+      def withConnection(container: Container)(action: DatabaseConnection => Unit) =
+        using(db.openConnection(
+          docker,
+          dbSchemaName,
+          container.containerHost,
+          container.exposedPort,
+          db.testDockerBaseImage.username,
+          db.testDockerBaseImage.password,
+          config.getString("create_database_statement"),
+          config
+        ))(action)
     }
 
-    def withConnection(container: Container)(action: DatabaseConnection => Unit) =
-      using(db.openConnection(
-        dbSchemaName,
-        container.containerHost,
-        container.exposedPort,
-        db.testDockerBaseImage.username,
-        db.testDockerBaseImage.password,
-        config.getString("create_database_statement"),
-        config
-      ))(action)
   }
 }
