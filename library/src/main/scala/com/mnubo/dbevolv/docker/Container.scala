@@ -86,9 +86,8 @@ class Container(docker: Docker,
 
   def commit(repository: String, tag: String): String = {
     docker.client.pauseContainer(containerId)
-    docker.client.commitContainer(containerId, repository, tag, ContainerConfig.builder.build, "", "dbevolv")
+    lastImageId = docker.client.commitContainer(containerId, repository, tag, ContainerConfig.builder.build, "", "dbevolv").id()
     docker.client.unpauseContainer(containerId)
-    lastImageId = docker.client.inspectContainer(containerId).image()
 
     lastImageId
   }
