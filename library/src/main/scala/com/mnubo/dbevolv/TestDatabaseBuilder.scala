@@ -15,7 +15,10 @@ object TestDatabaseBuilder extends Logging {
       .loadConfig("workstation")
       .withValue("force_pull_verification_db", ConfigValueFactory.fromAnyRef(false))
 
-    val defaultTestConfig = ConfigFactory.parseString("has_instance_for_each_tenant=false").withFallback(config)
+    val defaultTestConfig = ConfigFactory.parseString("""
+      name_provider_class = "com.mnubo.dbevolv.DefaultDatabaseNameProvider"
+      has_instance_for_each_tenant=false
+    """).withFallback(config)
 
     val testConfigs = config
       .getConfigList("test_configurations")
@@ -81,9 +84,9 @@ object TestDatabaseBuilder extends Logging {
 
           testConfigs.foreach { testConfig =>
             if (testConfig.getBoolean("has_instance_for_each_tenant") && testConfig.hasPath("tenant"))
-              migrate(Some(schemaVersion.version), twice = true, config = config, tenant = Some(testConfig.getString("tenant")))
+              migrate(Some(schemaVersion.version), twice = true, config = testConfig, tenant = Some(testConfig.getString("tenant")))
             else
-              migrate(Some(schemaVersion.version), twice = true, config = config)
+              migrate(Some(schemaVersion.version), twice = true, config = testConfig)
           }
 
           log.info(s"Commiting $dbKind $schemaName test instance to $repositoryName:${schemaVersion.version}...")
