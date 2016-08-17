@@ -51,7 +51,7 @@ TaskKey[Unit]("check-mgr") := {
     case class Cassandra() extends AutoCloseable {
       val cassandraContainer = new Container(
         docker,
-        "mnubo/cassandra:2.1",
+        "mnubo/cassandra:3.0",
         (logs, _) => logs.contains("Listening for thrift clients...") || logs.contains("Starting listening for CQL clients"),
         9042
       )
