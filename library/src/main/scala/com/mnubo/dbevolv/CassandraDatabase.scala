@@ -37,7 +37,7 @@ object CassandraDatabase extends Database {
 
   override def testDockerBaseImage =
     DatabaseDockerImage(
-      name        = "mnubo/cassandra:2.1",
+      name        = "mnubo/cassandra:3.0",
       exposedPort = 9042,
       isStarted   = (log, _) => log.contains("Listening for thrift clients..."),
       flushCmd = Some(Seq("nodetool", "flush"))
