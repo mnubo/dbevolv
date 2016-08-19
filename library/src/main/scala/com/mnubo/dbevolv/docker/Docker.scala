@@ -61,10 +61,14 @@ class Docker(targetRegistry: Option[String]) extends Logging with AutoCloseable 
       auth <- auths.get(serverName)
     } yield auth).orNull
 
-  val client =
+  val client = {
     targetRegistry
-      .map(serverUrl => DefaultDockerClient.fromEnv.authConfig(auths(serverUrl)).build)
+      .map { serverUrl =>
+        require(auths.contains(serverUrl), s"Oups, cannot find Docker authorization for $serverUrl. Authentication available for: ${auths.keys.mkString(", ")}")
+        DefaultDockerClient.fromEnv.authConfig(auths(serverUrl)).build
+      }
       .getOrElse(DefaultDockerClient.fromEnv.build)
+  }
 
   def images =
     client
