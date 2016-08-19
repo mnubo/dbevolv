@@ -230,6 +230,10 @@ TaskKey[Unit]("check-mgr") := {
           query("SELECT migration_version FROM cassandradb.cassandradb_version")(_.getString("migration_version")) == Seq("0004"),
           "Metadata is not updated correctly after a rollback up to a rebase"
         )
+        assert(
+          runShell(s"$mgrCmd -n invalid_should_b_-t") == 1,
+          "The schema manager should exit with non zero error code on invalid arguments"
+        )
       }
       finally {
         assert(

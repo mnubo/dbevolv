@@ -42,56 +42,59 @@ object Dbevolv extends App with Logging {
 
     }
 
-  parser.parse(args, DbevolvArgsConfig()).foreach { argConfig =>
+  parser.parse(args, DbevolvArgsConfig()) match {
+    case Some(argConfig) =>
+      val version = argConfig
+        .version
+        .orElse {
+          require(config.hasPath("schema_version"), "Sorry, you have to define a 'schema_version' in your 'db.conf'.")
+          val cfgVersion = config.getString("schema_version")
+          if (cfgVersion == "latest")
+            None
+          else
+            Some(cfgVersion)
+        }
 
-    val version = argConfig
-      .version
-      .orElse {
-        require(config.hasPath("schema_version"), "Sorry, you have to define a 'schema_version' in your 'db.conf'.")
-        val cfgVersion = config.getString("schema_version")
-        if (cfgVersion == "latest")
-          None
+      val tenants =
+        if (argConfig.tenantSpecified)
+          Seq(argConfig.tenant)
+        else if (hasInstanceForEachTenant) {
+          using(getClass
+              .getClassLoader
+              .loadClass(config.getString("tenant_repository_class"))
+              .getConstructor(classOf[Config])
+              .newInstance(config)
+              .asInstanceOf[TenantRepository]) { _.fetchTenants.map(Some(_)) }
+        }
         else
-          Some(cfgVersion)
-      }
+          Seq(None)
 
-    val tenants =
-      if (argConfig.tenantSpecified)
-        Seq(argConfig.tenant)
-      else if (hasInstanceForEachTenant) {
-        using(getClass
-            .getClassLoader
-            .loadClass(config.getString("tenant_repository_class"))
-            .getConstructor(classOf[Config])
-            .newInstance(config)
-            .asInstanceOf[TenantRepository]) { _.fetchTenants.map(Some(_)) }
-      }
-      else
-        Seq(None)
+      using(new Docker(if (config.hasPath("docker_namespace")) Some(config.getString("docker_namespace")) else None )) { docker =>
+        using(Database.databases(config.getString("database_kind")).openConnection(
+          docker,
+          schemaName,
+          config.getString("host"),
+          config.getInt("port"),
+          config.getString("username"),
+          config.getString("password"),
+          config.getString("create_database_statement"),
+          config
+        )) { connection =>
+          tenants.foreach { ns =>
+            val cfg = DbMigrationConfig(connection, config, ns, version.filter(_ != "latest"))
 
-    using(new Docker(if (config.hasPath("docker_namespace")) Some(config.getString("docker_namespace")) else None )) { docker =>
-      using(Database.databases(config.getString("database_kind")).openConnection(
-        docker,
-        schemaName,
-        config.getString("host"),
-        config.getInt("port"),
-        config.getString("username"),
-        config.getString("password"),
-        config.getString("create_database_statement"),
-        config
-      )) { connection =>
-        tenants.foreach { ns =>
-          val cfg = DbMigrationConfig(connection, config, ns, version.filter(_ != "latest"))
-
-          argConfig.cmd match {
-            case Migrate =>
-              DatabaseMigrator.migrate(cfg)
-            case DisplayHistory =>
-              DatabaseInspector.displayHistory(cfg)
+            argConfig.cmd match {
+              case Migrate =>
+                DatabaseMigrator.migrate(cfg)
+              case DisplayHistory =>
+                DatabaseInspector.displayHistory(cfg)
+            }
           }
         }
       }
-    }
+    case _ =>
+      log.error("Invalid arguments.")
+      System.exit(1)
   }
 }
 
