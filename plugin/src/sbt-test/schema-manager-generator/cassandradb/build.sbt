@@ -18,8 +18,6 @@ import collection.JavaConverters._
 import sbtdocker.staging.DefaultDockerfileProcessor
 import sbtdocker.{DockerBuild, DockerKeys}
 
-resolvers += "Mnubo release repository" at "http://artifactory.mtl.mnubo.com:8081/artifactory/libs-release-local/" // Temporary while removing all of our deps
-
 TaskKey[Unit]("check-mgr") := {
   val logger = streams.value.log
   val dockerPath = (DockerKeys.dockerPath in docker).value
