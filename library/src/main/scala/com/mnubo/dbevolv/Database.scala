@@ -14,7 +14,6 @@ trait Database {
                      port: Int,
                      userName: String,
                      pwd: String,
-                     createDatabaseStatement: String,
                      config: Config): DatabaseConnection
   def testDockerBaseImage: DatabaseDockerImage
 
@@ -23,9 +22,9 @@ trait Database {
 }
 
 trait DatabaseConnection extends Closeable {
-  def setActiveSchema(schema: String)
+  def setActiveSchema(schema: String, config: Config)
   /** For tests, or QA, we might want to recreate a database instance from scratch. Implementors should know how to properly clean an existing database. */
-  def dropDatabase(): Unit
+  def dropDatabase(config: Config): Unit
   def execute(smt: String): Unit
   /** Get the concrete connection this DatabaseConnection is wrapping. Ex: the com.datastax.driver.core.Session. **/
   def innerConnection: AnyRef

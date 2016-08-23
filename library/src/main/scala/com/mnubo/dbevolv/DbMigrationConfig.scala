@@ -8,7 +8,7 @@ case class DbMigrationConfig(connection: DatabaseConnection,
                              skipSchemaVerification: Boolean,
                              applyUpgradesTwice: Boolean,
                              wholeConfig: Config) {
-  connection.setActiveSchema(name)
+  connection.setActiveSchema(name, wholeConfig)
 }
 
 case class DbevolvArgsConfig(version: Option[String] = None,

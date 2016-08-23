@@ -66,11 +66,11 @@ object TestDatabaseBuilder extends Logging {
               }
 
               // Verify schemas are compatible
-              withConnection(fromRebaseContainer) { fromConnection =>
-                fromConnection.setActiveSchema(dbSchemaName)
+              withConnection(fromRebaseContainer, config) { fromConnection =>
+                fromConnection.setActiveSchema(dbSchemaName, config)
 
-                withConnection(container) { connection =>
-                  connection.setActiveSchema(dbSchemaName)
+                withConnection(container, config) { connection =>
+                  connection.setActiveSchema(dbSchemaName, config)
                   if (!connection.isSameSchema(fromConnection))
                     throw new Exception(s"Rebase script for version ${schemaVersion.version} is not compatible with previous version schema")
                 }
@@ -132,12 +132,26 @@ object TestDatabaseBuilder extends Logging {
       }
 
       def migrate(toVersion: Option[String], twice: Boolean, config: Config, tenant: Option[String] = None, container: Container = container) = {
-        withConnection(container) { connection =>
+        val tenantConfig =
+          tenant
+            .map { tenantId =>
+              using(
+                getClass
+                  .getClassLoader
+                  .loadClass(config.getString("tenant_configuration_provider_class"))
+                  .getConstructor(classOf[Config])
+                  .newInstance(config)
+                  .asInstanceOf[TenantConfigurationProvider]
+              ) { _.configFor(tenantId).withFallback(config) }
+            }
+            .getOrElse(config)
+
+        withConnection(container, tenantConfig) { connection =>
           log.info(s"Connected to $container.")
 
           DatabaseMigrator.migrate(DbMigrationConfig(
             connection,
-            config,
+            tenantConfig,
             tenant,
             toVersion,
             skipSchemaVerification = true,
@@ -146,7 +160,7 @@ object TestDatabaseBuilder extends Logging {
         }
       }
 
-      def withConnection(container: Container)(action: DatabaseConnection => Unit) =
+      def withConnection(container: Container, config: Config)(action: DatabaseConnection => Unit) =
         using(db.openConnection(
           docker,
           dbSchemaName,
@@ -154,7 +168,6 @@ object TestDatabaseBuilder extends Logging {
           container.exposedPort,
           db.testDockerBaseImage.username,
           db.testDockerBaseImage.password,
-          config.getString("create_database_statement"),
           config
         ))(action)
     }

@@ -24,14 +24,12 @@ object CassandraDatabase extends Database {
                               port: Int,
                               userName: String,
                               pwd: String,
-                              createDatabaseStatement: String,
                               config: Config): DatabaseConnection =
     new CassandraConnection(
       docker,
       schemaName,
       hosts,
       if (port > 0) port else 9042,
-      createDatabaseStatement,
       config
     )
 
@@ -48,7 +46,6 @@ class CassandraConnection(docker: Docker,
                           computedDbName: String,
                           hosts: String,
                           port: Int,
-                          createDatabaseStatement: String,
                           config: Config) extends DatabaseConnection with Logging {
   private val maxSchemaAgreementWaitSeconds =
     config.getInt("max_schema_agreement_wait_seconds")
@@ -70,9 +67,9 @@ class CassandraConnection(docker: Docker,
   private var keyspace: String = null
   private val schemaName: String = config.getString("schema_name")
 
-  override def setActiveSchema(keyspace: String) {
+  override def setActiveSchema(keyspace: String, config: Config) {
     this.keyspace = keyspace
-    if (!hasKeyspace) execute(createDatabaseStatement.replace("@@DATABASE_NAME@@", keyspace))
+    if (!hasKeyspace) execute(config.getString("create_database_statement").replace("@@DATABASE_NAME@@", keyspace))
     execute("USE " + keyspace)
   }
 
@@ -83,7 +80,7 @@ class CassandraConnection(docker: Docker,
     session
 
   /** For tests, or QA, we might want to recreate a database instance from scratch. Implementors should know how to properly clean an existing database. */
-  override def dropDatabase() = {
+  override def dropDatabase(config: Config) = {
     cluster
       .getMetadata
       .getKeyspace(keyspace)
@@ -93,7 +90,7 @@ class CassandraConnection(docker: Docker,
 
     execute("DROP KEYSPACE " + keyspace)
 
-    execute(createDatabaseStatement.replace("@@DATABASE_NAME@@", keyspace))
+    execute(config.getString("create_database_statement").replace("@@DATABASE_NAME@@", keyspace))
 
     execute("USE " + keyspace)
   }
@@ -176,8 +173,8 @@ class CassandraConnection(docker: Docker,
       log.info(s"Launching reference db in ${referenceDatabase.containerId}")
 
       try {
-        using(new CassandraConnection(docker, computedDbName, referenceDatabase.containerHost, referenceDatabase.exposedPort, createDatabaseStatement, config)) { referenceDatabaseConnection =>
-          referenceDatabaseConnection.setActiveSchema(schemaName)
+        using(new CassandraConnection(docker, computedDbName, referenceDatabase.containerHost, referenceDatabase.exposedPort, config)) { referenceDatabaseConnection =>
+          referenceDatabaseConnection.setActiveSchema(schemaName, config)
           isSameSchema(referenceDatabaseConnection)
         }
       }

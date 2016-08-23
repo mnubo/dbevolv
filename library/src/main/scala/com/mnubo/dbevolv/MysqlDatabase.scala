@@ -22,7 +22,6 @@ object MysqlDatabase extends Database {
                               port: Int,
                               userName: String,
                               pwd: String,
-                              createDatabaseStatement: String,
                               config: Config): DatabaseConnection =
     new MysqlConnection(
       docker,
@@ -31,7 +30,6 @@ object MysqlDatabase extends Database {
       if (port > 0) port else 3306,
       userName,
       pwd,
-      createDatabaseStatement,
       config)
 
   override val testDockerBaseImage =
@@ -51,7 +49,6 @@ class MysqlConnection(docker: Docker,
                       port: Int,
                       userName: String,
                       pwd: String,
-                      createDatabaseStatement: String,
                       config: Config) extends DatabaseConnection {
   private val forcePullVerificationDb =
     config.getBoolean("force_pull_verification_db")
@@ -63,9 +60,9 @@ class MysqlConnection(docker: Docker,
   private var database: String = null
   private val schemaName: String = config.getString("schema_name")
 
-  override def setActiveSchema(database: String) {
+  override def setActiveSchema(database: String, config: Config) {
     this.database = database
-    if (!hasDatabase) execute(createDatabaseStatement.replace("@@DATABASE_NAME@@", database))
+    if (!hasDatabase) execute(config.getString("create_database_statement").replace("@@DATABASE_NAME@@", database))
     execute("USE " + database)
   }
 
@@ -76,9 +73,9 @@ class MysqlConnection(docker: Docker,
     connection
 
   /** For tests, or QA, we might want to recreate a database instance from scratch. Implementors should know how to properly clean an existing database. */
-  override def dropDatabase() = {
+  override def dropDatabase(config: Config) = {
     execute("DROP DATABASE " + database)
-    execute(createDatabaseStatement)
+    execute(config.getString("create_database_statement").replace("@@DATABASE_NAME@@", database))
     execute("USE " + database)
   }
 
@@ -165,10 +162,9 @@ class MysqlConnection(docker: Docker,
           referenceDatabase.exposedPort,
           MysqlDatabase.testDockerBaseImage.username,
           MysqlDatabase.testDockerBaseImage.password,
-          createDatabaseStatement,
           config
         )) { referenceDatabaseConnection =>
-          referenceDatabaseConnection.setActiveSchema(schemaName)
+          referenceDatabaseConnection.setActiveSchema(schemaName, config)
           isSameSchema(referenceDatabaseConnection)
         }
       }
