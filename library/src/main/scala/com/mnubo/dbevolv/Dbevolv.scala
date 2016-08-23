@@ -59,12 +59,14 @@ object Dbevolv extends App with Logging {
         if (argConfig.tenantSpecified)
           Seq(argConfig.tenant)
         else if (hasInstanceForEachTenant) {
-          using(getClass
+          using(
+            getClass
               .getClassLoader
               .loadClass(config.getString("tenant_repository_class"))
               .getConstructor(classOf[Config])
               .newInstance(config)
-              .asInstanceOf[TenantRepository]) { _.fetchTenants.map(Some(_)) }
+              .asInstanceOf[TenantRepository]
+          ) { _.fetchTenants.map(Some(_)) }
         }
         else
           Seq(None)
@@ -77,11 +79,25 @@ object Dbevolv extends App with Logging {
           config.getInt("port"),
           config.getString("username"),
           config.getString("password"),
-          config.getString("create_database_statement"),
           config
         )) { connection =>
-          tenants.foreach { ns =>
-            val cfg = DbMigrationConfig(connection, config, ns, version.filter(_ != "latest"))
+          tenants.foreach { tenant =>
+            val tenantConfig: Config =
+              tenant
+                .map { tenantId =>
+                  using(
+                    getClass
+                      .getClassLoader
+                      .loadClass(config.getString("tenant_configuration_provider_class"))
+                      .getConstructor(classOf[Config])
+                      .newInstance(config)
+                      .asInstanceOf[TenantConfigurationProvider]
+                  ) { _.configFor(tenantId).withFallback(config) }
+                }
+                .getOrElse(config)
+
+
+            val cfg = DbMigrationConfig(connection, tenantConfig, tenant, version.filter(_ != "latest"))
 
             argConfig.cmd match {
               case Migrate =>

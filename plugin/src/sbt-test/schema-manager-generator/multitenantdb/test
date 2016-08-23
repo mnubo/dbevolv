@@ -1,0 +1,8 @@
+# For help on testing SBT plugins, see the following tutorials. Note: need to mix and match information from all of them.
+# http://mukis.de/pages/sbt-autoplugins-tutorial/
+# http://eed3si9n.com/testing-sbt-plugins
+
+> clean
+> docker
+> buildTestContainer
+> check-mgr
