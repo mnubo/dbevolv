@@ -24,7 +24,8 @@ object DbevolvPlugin extends AutoPlugin {
   private val dbevolvVersion = Source.fromInputStream(getClass.getResourceAsStream("/version.txt")).getLines().mkString
   private val dbDependencies = Map(
     "cassandra" -> Seq("com.datastax.cassandra" % "cassandra-driver-core" % "3.0.0"),
-    "elasticsearch" -> Seq("org.elasticsearch" % "elasticsearch" % "1.5.2"),
+    "elasticsearch" -> Seq("com.mnubo" %% "dbevolv-elasticsearch" % dbevolvVersion),
+    "elasticsearch2" -> Seq("com.mnubo" %% "dbevolv-elasticsearch2" % dbevolvVersion),
     "mysql" -> Seq("mysql" % "mysql-connector-java" % "5.1.35")
   )
 
