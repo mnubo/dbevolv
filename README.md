@@ -441,12 +441,12 @@ Development
 
 The schema manager builder is actually a SBT plugin. To test the sbt plugin, we are using the scripted sbt plugin (yes, a pluging to test a plugin...). To launch the (quite long) tests, do:
 
-    sbt library/publishLocal scripted
+    sbt library/publishLocal dbevolvElasticsearch/publishLocal dbevolvElasticsearch2/publishLocal scripted
 
 And go fetch a cup of coffee, you'll have time.
 
 If you want to runs tests only on one kind of data store, specify the test build directory you want to fire (relative to src/sbt-test:
 
-    sbt library/publishLocal "scripted schema-manager-generator/cassandradb"
+    sbt library/publishLocal dbevolvElasticsearch/publishLocal dbevolvElasticsearch2/publishLocal "scripted schema-manager-generator/cassandradb"
 
 Documentation for the scripted plugin is not the best. You can find a tutorial here: [Testing SBT plugins](http://eed3si9n.com/testing-sbt-plugins)

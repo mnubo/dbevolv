@@ -6,6 +6,8 @@ import com.mnubo.dbevolv.docker.{Container, Docker}
 import com.typesafe.config.Config
 import org.joda.time.DateTime
 
+import scala.util.Try
+
 trait Database {
   def name: String
   def openConnection(docker: Docker,
@@ -47,7 +49,24 @@ case class InstalledVersion(version: String, installedDate: DateTime, checksum: 
 
 object Database {
   val databases =
-    List(CassandraDatabase, ElasticsearchDatabase, MysqlDatabase)
-      .map(db => db.name -> db)
+    List("CassandraDatabase", "ElasticsearchDatabase", "Elasticsearch2Database", "MysqlDatabase")
+      .filter { dbName =>
+        Try(
+          getClass
+            .getClassLoader
+            .loadClass(s"com.mnubo.dbevolv.$dbName$$")
+        ).isSuccess
+      }
+      .map { dbName =>
+        val db =
+          getClass
+            .getClassLoader
+            .loadClass(s"com.mnubo.dbevolv.$dbName$$")
+            .getField("MODULE$")
+            .get(null)
+            .asInstanceOf[Database]
+
+        db.name -> db
+      }
       .toMap
 }

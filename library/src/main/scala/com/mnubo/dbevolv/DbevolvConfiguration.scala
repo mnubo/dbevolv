@@ -3,7 +3,6 @@ package com.mnubo.dbevolv
 import java.io.File
 
 import com.typesafe.config.{Config, ConfigFactory, ConfigParseOptions}
-import org.elasticsearch.common.settings.Settings
 
 object DbevolvConfiguration {
   def loadConfig(env: String = System.getenv("ENV")): Config = {
