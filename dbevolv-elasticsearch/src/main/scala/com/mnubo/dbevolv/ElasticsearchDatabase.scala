@@ -1,5 +1,4 @@
-package com.mnubo
-package dbevolv
+package com.mnubo.dbevolv
 
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -17,7 +16,6 @@ import spray.json._
 
 import scala.collection.JavaConverters._
 import scala.util.Try
-import scala.util.control.NonFatal
 
 object ElasticsearchDatabase extends Database {
   val name = "elasticsearch"
