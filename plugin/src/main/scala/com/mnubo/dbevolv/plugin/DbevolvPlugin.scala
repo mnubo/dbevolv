@@ -54,7 +54,8 @@ object DbevolvPlugin extends AutoPlugin {
     ) ++ dbDependencies(config.getString("database_kind")),
 
     assemblyMergeStrategy in assembly     := {
-      case "META-INF/io.netty.versions.properties"                      => MergeStrategy.first
+      case "org/joda/time/base/BaseDateTime.class" => MergeStrategy.first
+      case "META-INF/io.netty.versions.properties" => MergeStrategy.first
       case x => (assemblyMergeStrategy in assembly).value(x)
     },
 
