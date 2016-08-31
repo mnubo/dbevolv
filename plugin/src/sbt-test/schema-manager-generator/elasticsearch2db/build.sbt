@@ -41,7 +41,7 @@ TaskKey[Unit]("check-mgr") := {
     SProcess(cmd) !
   }
 
-  val indexName = "elasticsearchdb"
+  val indexName = "elasticsearch2db"
   val typeName = "kv"
 
   using(new Docker(None)) { docker =>
@@ -94,7 +94,7 @@ TaskKey[Unit]("check-mgr") := {
       def metadata =
         client
           .prepareSearch(indexName)
-          .setTypes("elasticsearchdb_version")
+          .setTypes(s"${indexName}_version")
           .setQuery(QueryBuilders.matchAllQuery())
           .setSize(10000)
           .execute()
@@ -126,7 +126,7 @@ TaskKey[Unit]("check-mgr") := {
       import es._
 
       val mgrCmd =
-        s"docker run -i --rm --link ${esContainer.containerId}:elasticsearch -v /var/run/docker.sock:/var/run/docker.sock -v $dockerExec:$dockerExec -v $userHome/.docker/:/root/.docker/ -e ENV=integration elasticsearchdb-mgr:1.0.0-SNAPSHOT"
+        s"docker run -i --rm --link ${esContainer.containerId}:elasticsearch -v /var/run/docker.sock:/var/run/docker.sock -v $dockerExec:$dockerExec -v $userHome/.docker/:/root/.docker/ -e ENV=integration elasticsearch2db-mgr:1.0.0-SNAPSHOT"
 
       logger.info("TEST: Run the schema manager to migrate the db to latest version")
       assert(
@@ -172,7 +172,7 @@ TaskKey[Unit]("check-mgr") := {
         runShellAndListen(s"$mgrCmd --history")
       logger.info(history)
       val historyRegex =
-        ("""History of elasticsearchdb:\s+Version\s+Date\s+Checksum\s+0001\s+\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d.\d\d\dZ\s+""" + checksum1 + """\s+0002\s+\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d.\d\d\dZ\s+""" + checksum2).r
+        ("""History of elasticsearch2db:\s+Version\s+Date\s+Checksum\s+0001\s+\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d.\d\d\dZ\s+""" + checksum1 + """\s+0002\s+\d\d\d\d-\d\d-\d\dT\d\d:\d\d:\d\d.\d\d\dZ\s+""" + checksum2).r
       assert(
          historyRegex.findFirstIn(history).isDefined,
         s"The schema manager did not report history properly. Expected \n$history\n\nto match $historyRegex"
@@ -194,7 +194,7 @@ TaskKey[Unit]("check-mgr") := {
 
       logger.info("TEST: Fiddle with checksum and make sure the schema manager refuses to proceed")
       client
-        .prepareUpdate(indexName, "elasticsearchdb_version", "0001")
+        .prepareUpdate(indexName, s"${indexName}_version", "0001")
         .setDoc("checksum", "abc")
         .get()
 
@@ -204,7 +204,7 @@ TaskKey[Unit]("check-mgr") := {
       )
 
       client
-        .prepareUpdate(indexName, "elasticsearchdb_version", "0001")
+        .prepareUpdate(indexName, s"${indexName}_version", "0001")
         .setDoc("checksum", checksum1)
         .get()
 
@@ -258,7 +258,7 @@ TaskKey[Unit]("check-mgr") := {
         .admin
         .indices
         .preparePutMapping(indexName)
-        .setType("elasticsearchdb_version")
+        .setType(s"${indexName}_version")
         .setSource(
           "migration_date", "type=date,store=true,format=date_time",
           "checksum",        "type=string,index=not_analyzed"
@@ -266,13 +266,13 @@ TaskKey[Unit]("check-mgr") := {
         .get
 
       client
-        .prepareIndex(indexName, "elasticsearchdb_version", "0001")
+        .prepareIndex(indexName, s"${indexName}_version", "0001")
         .setSource(
           "migration_date", "1970-01-01T00:00:00.000Z",
           "checksum", checksum1)
         .get
       client
-        .prepareIndex(indexName, "elasticsearchdb_version", "0002")
+        .prepareIndex(indexName, s"${indexName}_version", "0002")
         .setSource(
           "migration_date", "1970-01-01T00:00:00.000Z",
           "checksum", checksum2)
@@ -310,10 +310,10 @@ TaskKey[Unit]("check-mgr") := {
 
     }
 
-    s"docker rmi -f elasticsearchdb-mgr:1.0.0-SNAPSHOT".!
-    s"docker rmi -f elasticsearchdb-mgr:latest".!
-    s"docker rmi -f test-elasticsearchdb:0002".!
-    s"docker rmi -f test-elasticsearchdb:0001".!
-    s"docker rmi -f test-elasticsearchdb:latest".!
+    s"docker rmi -f elasticsearch2db-mgr:1.0.0-SNAPSHOT".!
+    s"docker rmi -f elasticsearch2db-mgr:latest".!
+    s"docker rmi -f test-elasticsearch2db:0002".!
+    s"docker rmi -f test-elasticsearch2db:0001".!
+    s"docker rmi -f test-elasticsearch2db:latest".!
   }
 }
