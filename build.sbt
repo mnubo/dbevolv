@@ -3,7 +3,7 @@ import scala.xml.Group
 val fixedJerseyVersion = "2.22.2"
 
 val commonSettings = Seq(
-  version := "1.0.14",
+  version := "1.0.15",
 
   organization := "com.mnubo",
 
@@ -65,7 +65,7 @@ lazy val root = (project in file("."))
     publish := {},
     publishLocal := {}
   )
-  .aggregate(library, plugin)
+  .aggregate(library, dbevolvElasticsearch, dbevolvElasticsearch2, plugin)
 
 lazy val library = (project in file("library"))
   .settings(commonSettings: _*)
@@ -74,7 +74,6 @@ lazy val library = (project in file("library"))
 
     libraryDependencies ++= Seq(
       "com.datastax.cassandra"  %  "cassandra-driver-core"  % "3.0.0" % "provided",
-      "org.elasticsearch"       %  "elasticsearch"          % "1.5.2" % "provided",
       "mysql"                   %  "mysql-connector-java"   % "5.1.35" % "provided",
       "com.typesafe"            %  "config"                 % "1.2.1",
       "com.spotify"             %  "docker-client"          % "5.0.2",
@@ -94,6 +93,39 @@ lazy val library = (project in file("library"))
       case x => (assemblyMergeStrategy in assembly).value(x)
     }
   )
+
+lazy val dbevolvElasticsearch = (project in file("dbevolv-elasticsearch"))
+  .settings(commonSettings: _*)
+  .settings(
+    name := "dbevolv-elasticsearch",
+
+    libraryDependencies ++= Seq(
+      "org.elasticsearch"       %  "elasticsearch"          % "1.5.2"
+    ),
+
+    assemblyMergeStrategy in assembly := {
+      case "META-INF/io.netty.versions.properties" => MergeStrategy.first
+      case x => (assemblyMergeStrategy in assembly).value(x)
+    }
+  )
+  .dependsOn(library)
+
+lazy val dbevolvElasticsearch2 = (project in file("dbevolv-elasticsearch2"))
+  .settings(commonSettings: _*)
+  .settings(
+    name := "dbevolv-elasticsearch2",
+
+    libraryDependencies ++= Seq(
+      "org.elasticsearch"         %  "elasticsearch"          % "2.3.3",
+      "org.elasticsearch.plugin"  %  "delete-by-query"        % "2.3.3"
+    ),
+
+    assemblyMergeStrategy in assembly := {
+      case "META-INF/io.netty.versions.properties" => MergeStrategy.first
+      case x => (assemblyMergeStrategy in assembly).value(x)
+    }
+  )
+  .dependsOn(library)
 
 
 lazy val plugin = (project in file("plugin"))

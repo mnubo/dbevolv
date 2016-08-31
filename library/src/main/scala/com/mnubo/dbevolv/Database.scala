@@ -6,6 +6,8 @@ import com.mnubo.dbevolv.docker.{Container, Docker}
 import com.typesafe.config.Config
 import org.joda.time.DateTime
 
+import scala.util.Try
+
 trait Database {
   def name: String
   def openConnection(docker: Docker,
@@ -14,7 +16,6 @@ trait Database {
                      port: Int,
                      userName: String,
                      pwd: String,
-                     createDatabaseStatement: String,
                      config: Config): DatabaseConnection
   def testDockerBaseImage: DatabaseDockerImage
 
@@ -23,9 +24,9 @@ trait Database {
 }
 
 trait DatabaseConnection extends Closeable {
-  def setActiveSchema(schema: String)
+  def setActiveSchema(schema: String, config: Config)
   /** For tests, or QA, we might want to recreate a database instance from scratch. Implementors should know how to properly clean an existing database. */
-  def dropDatabase(): Unit
+  def dropDatabase(config: Config): Unit
   def execute(smt: String): Unit
   /** Get the concrete connection this DatabaseConnection is wrapping. Ex: the com.datastax.driver.core.Session. **/
   def innerConnection: AnyRef
@@ -48,7 +49,24 @@ case class InstalledVersion(version: String, installedDate: DateTime, checksum: 
 
 object Database {
   val databases =
-    List(CassandraDatabase, ElasticsearchDatabase, MysqlDatabase)
-      .map(db => db.name -> db)
+    List("CassandraDatabase", "ElasticsearchDatabase", "Elasticsearch2Database", "MysqlDatabase")
+      .filter { dbName =>
+        Try(
+          getClass
+            .getClassLoader
+            .loadClass(s"com.mnubo.dbevolv.$dbName$$")
+        ).isSuccess
+      }
+      .map { dbName =>
+        val db =
+          getClass
+            .getClassLoader
+            .loadClass(s"com.mnubo.dbevolv.$dbName$$")
+            .getField("MODULE$")
+            .get(null)
+            .asInstanceOf[Database]
+
+        db.name -> db
+      }
       .toMap
 }

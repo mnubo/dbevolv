@@ -14,7 +14,7 @@ class Container(docker: Docker,
                 isStarted: (String, Container) => Boolean,
                 port: Int,
                 envVars: Set[String] = Set.empty,
-                forcePull: Boolean = true) extends Logging {
+                forcePull: Boolean = true) extends Logging with AutoCloseable {
   import Container._
 
   def this (docker: Docker, descriptor: DatabaseDockerImage) = this(docker, descriptor.name, descriptor.isStarted, descriptor.exposedPort, descriptor.envVars, false)
@@ -123,6 +123,10 @@ class Container(docker: Docker,
     val f = new File(path)
     f.exists && f.isFile
   }
+
+  override def close =
+    try stop()
+    finally remove()
 }
 
 object Container extends Logging {

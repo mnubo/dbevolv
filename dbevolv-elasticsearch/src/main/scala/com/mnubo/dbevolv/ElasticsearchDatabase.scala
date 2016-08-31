@@ -1,5 +1,4 @@
-package com.mnubo
-package dbevolv
+package com.mnubo.dbevolv
 
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -17,7 +16,6 @@ import spray.json._
 
 import scala.collection.JavaConverters._
 import scala.util.Try
-import scala.util.control.NonFatal
 
 object ElasticsearchDatabase extends Database {
   val name = "elasticsearch"
@@ -29,7 +27,6 @@ object ElasticsearchDatabase extends Database {
                               port: Int,
                               userName: String,
                               pwd: String,
-                              createDatabaseStatement: String,
                               config: Config): DatabaseConnection =
     new ElasticsearchConnection(
       docker,
@@ -89,9 +86,9 @@ class ElasticsearchConnection(docker: Docker,
 
   private var indexName: String = null
 
-  override def setActiveSchema(indexName: String) {
+  override def setActiveSchema(indexName: String, config: Config) {
     this.indexName = indexName
-    if (!indexExists) createIndex()
+    if (!indexExists) createIndex(config)
   }
 
   override def execute(smt: String): Unit =
@@ -101,11 +98,11 @@ class ElasticsearchConnection(docker: Docker,
     client
 
   /** For tests, or QA, we might want to recreate a database instance from scratch. Implementors should know how to properly clean an existing database. */
-  override def dropDatabase() = {
+  override def dropDatabase(config: Config) = {
     if (!client.admin.indices().prepareDelete(indexName).get.isAcknowledged)
       throw new Exception(s"Cannot delete index $indexName")
 
-    createIndex()
+    createIndex(config)
   }
 
   override def getInstalledMigrationVersions: Set[InstalledVersion] = {
@@ -199,7 +196,7 @@ class ElasticsearchConnection(docker: Docker,
       .get
       .isExists
 
-  private def createIndex() = {
+  private def createIndex(config: Config) = {
     if (!client
       .admin
       .indices
@@ -241,7 +238,7 @@ class ElasticsearchConnection(docker: Docker,
 
       try {
         using(new ElasticsearchConnection(docker, computedDbName, referenceDatabase.containerHost, referenceDatabase.exposedPort, config)) { referenceDatabaseConnection =>
-          referenceDatabaseConnection.setActiveSchema(schemaName)
+          referenceDatabaseConnection.setActiveSchema(schemaName, config)
           isSameSchema(referenceDatabaseConnection)
         }
       }

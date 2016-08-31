@@ -98,23 +98,36 @@ The `db.conf` should contain the description of the data store schema. You must 
 Here are the different parameters you can configure:
 
 * **database_kind**: which kind of data store we are targeting. See "Supported data stores" for valid values.
-* **has_instance_for_each_tenant**: whether this database have a distinct instance for each of your tenants. Default is 'false' (the database is a 'global' one).
-* **tenant_repository_class**: when `has_instance_for_each_tenant` is true, you must supply a tenant repository. See 'Getting the list of tenants' below.
 * **schema_name**: the logical name of this database schema.
 * **app_name**: the name of this schema manager (required by [app-util](http://git-lab1.mtl.mnubo.com/mnubo/app-util/tree/master)).
 * **schema_version**: the migration version the given environment is supposed to be at. If not specified, all migrations will be applied. Specifying it is mandatory for dev, qa, preprod, sandbox, and prod.
 * **docker_namespace**: optional. The namespace under which the various docker images will be tagged. Ex: if set to myregistry, the docker images will be tagged as myregistry/xyz.
 * **host**: the host or hosts name(s) to connect to.
 * **port**: the port to connect to. Leave empty for default port.
-* **username**: the username to use to connect to the data store instance. Certain kind of data stores like Cassandra don't need that.
-* **password**: the password to use to connect to the data store instance. Certain kind of data stores like Cassandra don't need that.
 * **create_database_statement**: The CQL / SQL / HQL statement to use if the database does not even exists when running the schema manager. The `@@DATABASE_NAME@@` place holder will automatically be replaced by the actual schema / keyspace name (see also "Computing the database name / schema name / index name / keyspace" below).
 * **name_provider_class**: See "Computing the database name / schema name / index name / keyspace" below.
-* **shard_number**: for Elasticsearch, how many shards the index should have.
-* **replica_number**: for Elasticsearch, in how many additional replicas each shard should be replicated (0 means no replication).
-* **max_schema_agreement_wait_seconds**: for Cassandra, sets the maximum time to wait for schema agreement before returning from a DDL query (default: 30).
 * **test_configurations**: configurations for which to generate test instances during the `buildTestContainer` task. This allows you to have various keyspaces / indices / databases within the test containers.
-* **tenant**: only used within `configurations`, defines a tenant name for which a test db instance should be created.
+
+For multi-tenant databases:
+
+* **has_instance_for_each_tenant**: whether this database have a distinct instance for each of your tenants. Default is 'false' (the database is a 'global' one).
+* **tenant_repository_class**: when `has_instance_for_each_tenant` is true, you must supply a tenant repository. See 'Getting the list of tenants' below.
+* **tenant_configuration_provider_class**: when `has_instance_for_each_tenant` is true, you can supply an optional configuration provider that will inject a different property depending of the tenant. See 'Tenant specific configuration' below.
+* **tenant**: only used within `test_configurations`, defines a tenant name for which a test db instance should be created.
+
+For Cassandra stores only:
+
+* **max_schema_agreement_wait_seconds**: sets the maximum time to wait for schema agreement before returning from a DDL query (default: 30).
+
+For Elasticsearch stores only:
+
+* **shard_number**: how many shards the index should have.
+* **replica_number**: in how many additional replicas each shard should be replicated (0 means no replication).
+
+For MySQL stores only:
+
+* **username**: the username to use to connect to the data store instance.
+* **password**: the password to use to connect to the data store instance.
 
 Note: most of the settings can have a default value at the top, but can be overriden for a given environment. See for example `create_database_statement` in the above example.
 
@@ -257,6 +270,36 @@ Then, you could add your repository specific configuration in the `db.conf` file
     tenantdb.host = "mydbhost"
     tenantdb.port = 3306
 
+Tenant specific configuration
+-----------------------------
+
+Sometimes, you need specific configuration for certain tenant. For example, large customer might require more Elasticsearch
+shards in their indices. You can achieve that by supplying a configuration provider. As for the tenant repository, you can
+reference the jar with your class in the dependencies:
+
+    libraryDependencies += "mycompany" % "mytenantconfigprovider" % "1.0.0"
+
+The constructor must have one and one argument only, which is the typesafe config loaded from the `db.conf` file.
+
+    package mycompany.tenants
+
+    import com.mnubo.dbevolv._
+
+    class MyTenantConfiguration(config: Config) extends TenantConfigurationProvider {
+      override def configFor(tenant: String) = {
+        // load config from a database or a config file for this particular tenant
+      }
+
+      override def close() = ...
+    }
+
+Then, you could reference this class in the `db.conf` file. In the previous fictitious example, it would look like:
+
+    has_instance_for_each_tenant = true
+    tenant_configuration_provider_class = "mycompany.tenants.MyTenantConfiguration"
+
+Note: you can provide an empty config for a given tenant. dbevolv will simply apply the default configuration from the `db.conf` file for this tenant.
+
 
 Computing the database name / schema name / index name / keyspace (depending on underlying db kind)
 ---------------------------------------------------------------------------------------------------
@@ -398,12 +441,12 @@ Development
 
 The schema manager builder is actually a SBT plugin. To test the sbt plugin, we are using the scripted sbt plugin (yes, a pluging to test a plugin...). To launch the (quite long) tests, do:
 
-    sbt library/publishLocal scripted
+    sbt library/publishLocal dbevolvElasticsearch/publishLocal dbevolvElasticsearch2/publishLocal scripted
 
 And go fetch a cup of coffee, you'll have time.
 
 If you want to runs tests only on one kind of data store, specify the test build directory you want to fire (relative to src/sbt-test:
 
-    sbt library/publishLocal "scripted schema-manager-generator/cassandradb"
+    sbt library/publishLocal dbevolvElasticsearch/publishLocal dbevolvElasticsearch2/publishLocal "scripted schema-manager-generator/cassandradb"
 
 Documentation for the scripted plugin is not the best. You can find a tutorial here: [Testing SBT plugins](http://eed3si9n.com/testing-sbt-plugins)

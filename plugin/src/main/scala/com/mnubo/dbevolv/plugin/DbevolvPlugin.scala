@@ -24,7 +24,8 @@ object DbevolvPlugin extends AutoPlugin {
   private val dbevolvVersion = Source.fromInputStream(getClass.getResourceAsStream("/version.txt")).getLines().mkString
   private val dbDependencies = Map(
     "cassandra" -> Seq("com.datastax.cassandra" % "cassandra-driver-core" % "3.0.0"),
-    "elasticsearch" -> Seq("org.elasticsearch" % "elasticsearch" % "1.5.2"),
+    "elasticsearch" -> Seq("com.mnubo" %% "dbevolv-elasticsearch" % dbevolvVersion),
+    "elasticsearch2" -> Seq("com.mnubo" %% "dbevolv-elasticsearch2" % dbevolvVersion),
     "mysql" -> Seq("mysql" % "mysql-connector-java" % "5.1.35")
   )
 
@@ -53,7 +54,8 @@ object DbevolvPlugin extends AutoPlugin {
     ) ++ dbDependencies(config.getString("database_kind")),
 
     assemblyMergeStrategy in assembly     := {
-      case "META-INF/io.netty.versions.properties"                      => MergeStrategy.first
+      case "org/joda/time/base/BaseDateTime.class" => MergeStrategy.first
+      case "META-INF/io.netty.versions.properties" => MergeStrategy.first
       case x => (assemblyMergeStrategy in assembly).value(x)
     },
 

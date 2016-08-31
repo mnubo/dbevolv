@@ -1,0 +1,18 @@
+package elasticsearchdb
+
+import org.elasticsearch.client.transport.TransportClient
+import org.elasticsearch.action.admin.indices.mapping.delete.DeleteMappingRequest
+
+class ScalaDown0001 {
+  def execute(client: TransportClient, indexName: String) = {
+    if (!client
+      .admin
+      .indices
+      .delete(new DeleteIndexRequest(indexName))
+      .get
+      .isAcknowledged)
+      throw new Exception("Cannot delete kv type")
+
+    new ScalaUp0001().execute(client, indexName)
+  }
+}
