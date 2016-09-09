@@ -121,6 +121,9 @@ class CassandraConnection(docker: Docker,
   override def markMigrationAsUninstalled(migrationVersion: String) =
     execute(s"DELETE FROM ${schemaName}_version WHERE migration_version = '$migrationVersion'")
 
+  override def updateChecksum(migrationVersion: String, newChecksum: String) =
+    execute(s"UPDATE ${schemaName}_version SET checksum='$newChecksum' WHERE migration_version = '$migrationVersion'")
+
   override def close() =
     try {
       session.close()

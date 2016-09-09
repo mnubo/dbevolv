@@ -9,7 +9,9 @@
   - [Building more complex upgrade / downgrade scripts](#building-more-complex-upgrade--downgrade-scripts)
   - [Migration design guidelines](#migration-design-guidelines)
   - [Rebasing a database](#rebasing-a-database)
+  - [Forcing a database upgrade](#forcing-a-database-upgrade)
   - [Getting the list of tenants](#getting-the-list-of-tenants)
+  - [Tenant specific configuration](#tenant-specific-configuration)
   - [Computing the database name / schema name / index name / keyspace (depending on underlying db kind)](#computing-the-database-name--schema-name--index-name--keyspace-depending-on-underlying-db-kind)
   - [Testing your newly added script locally before committing](#testing-your-newly-added-script-locally-before-committing)
   - [Project examples](#project-examples)
@@ -32,7 +34,8 @@ Supported data stores
 ---------------------
 
 * cassandra
-* elasticsearch
+* elasticsearch 1.x
+* elasticsearch 2.x
 * mysql
 
 Usage
@@ -62,7 +65,8 @@ The `db.conf` should contain the description of the data store schema. You must 
     schema_name = reverse_geo
     app_name = reverse_geo-schema-manager
     create_database_statement = "CREATE KEYSPACE @@DATABASE_NAME@@ WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }"
-
+    ignored_checksums = ""
+    
     test_configurations = [
       {
         tenant = "mycustomer1"
@@ -107,6 +111,7 @@ Here are the different parameters you can configure:
 * **create_database_statement**: The CQL / SQL / HQL statement to use if the database does not even exists when running the schema manager. The `@@DATABASE_NAME@@` place holder will automatically be replaced by the actual schema / keyspace name (see also "Computing the database name / schema name / index name / keyspace" below).
 * **name_provider_class**: See "Computing the database name / schema name / index name / keyspace" below.
 * **test_configurations**: configurations for which to generate test instances during the `buildTestContainer` task. This allows you to have various keyspaces / indices / databases within the test containers.
+* **ignored_checksums**: List of checksums migration to be ignored when upgrading. Use this option in the case you are forced to modify an existing migration (after an DB upgrade for example).
 
 For multi-tenant databases:
 
@@ -232,6 +237,58 @@ Rebase migrations are treated a bit differently than the others. Lets take an ex
 * **WARNING!**: once rebased, you cannot go back to previous migrations anymore. Which means that rolling back a database will only bring you to the previous rebase, even if you asked to rollback to a previous migration. For example, if a database is at version `0210` in our example, rolling back to `0030` will actually only bring the database to `0200`.
 
 **Cleanup**: after a given `rebase` migration has been applied to all environments, you can safely delete the previous migration directories from the build.
+
+Forcing a database upgrade
+--------------------------
+Under certains exceptionals circonstances, when upgrading to a new version of a database for example, you may have to skip the checksum validation step for a given migration. A removed/deprecated feature from the new database version could cause the migration to fail.
+In such situation, you could be forced to modify an existing migration. 
+Modifying an existing migration lead to a different checksum from the one saved in the database for this migration. dbevolv enforces migrations validation by comparing the saved checksum for a particular migration with the one generated for that migration. In the case the checksums are not the same the migration will fail.
+To force a modified migration to pass over the checksum validation, dbevolv provides a way of providing a list of checksums to be ignored. This list has to be defined in db.conf
+
+Example:
+
+Lets take an example where we do have the following migrations: 
+
+    0010
+    0020 (Migration that need to be modified because one feature is not longer supported in the new database version)
+    0030
+
+If you connect to your database (Cassandra in the following example) and look for the version table (here we take cassandradb as a database name example), you should get something like:
+
+    cqlsh> select * from cassandradb.cassandradb_version;
+    +-------------------+---------------------+----------------------------------+
+    | migration_version | migration_date      | checksum                         |
+    +-------------------+---------------------+----------------------------------+
+    | 0010              | 2016-01-18 19:25:06 | d0ee31c49aacf0be7ffd330e86c46535 |
+    | 0020              | 2016-01-22 09:45:10 | 39768d16296f5ddccd2744156b7d0fdc |
+    | 0030              | 2016-02-17 09:43:45 | d524701b1648207844ea072a5d5e2799 |
+    +-------------------+---------------------+----------------------------------+
+    3 rows in set (0.00 sec)
+
+The migration `0020` has a computed checksum `39768d16296f5ddccd2744156b7d0fdc`. If you are forced to modify this migration for the reasons explained above, the migration checksum will change and dbevolv will fail the migration.
+To force the migration to be processed by dbevolv, in `db.conf` add the following:
+
+
+     ignored_checksums = "39768d16296f5ddccd2744156b7d0fdc"
+
+Note:
+    `ignored_checksums`  is a `,` separated list in the case you have to force several migrations steps to go through.
+    at the `0020` migration step, dbevolv will ignore the checksum validation. It will replace the stored checksum in the `cassandradb_version` (here `39768d16296f5ddccd2744156b7d0fdc`) table by the new computed one. 
+    `39768d16296f5ddccd2744156b7d0fdc` could be removed from `db.conf` after the migration has been ran as the checksum for the `0020` migration has been recomputed and saved.
+    
+After the migration you should get :
+
+    cqlsh> select * from cassandradb.cassandradb_version;
+    +-------------------+---------------------+----------------------------------+
+    | migration_version | migration_date      | checksum                         |
+    +-------------------+---------------------+----------------------------------+
+    | 0010              | 2016-01-18 19:25:06 | d0ee31c49aacf0be7ffd330e86c46535 |
+    | 0020              | 2016-01-22 09:45:10 | 4e2fc57942e1523b4c97f92ff223eb3a | (new checksum recomputed from the modified migration step)
+    | 0030              | 2016-02-17 09:43:45 | d524701b1648207844ea072a5d5e2799 |
+    +-------------------+---------------------+----------------------------------+
+    3 rows in set (0.00 sec)
+
+
 
 Getting the list of tenants
 ---------------------------
@@ -448,5 +505,9 @@ And go fetch a cup of coffee, you'll have time.
 If you want to runs tests only on one kind of data store, specify the test build directory you want to fire (relative to src/sbt-test:
 
     sbt library/publishLocal dbevolvElasticsearch/publishLocal dbevolvElasticsearch2/publishLocal "scripted schema-manager-generator/cassandradb"
+
+Note:
+If you have modified one of the libraries and you run the tests, do not forget to update the 'version' value in the build.sbt accordinately to the new libraries version.
+ If you miss this setting, your tests will run against the libraries version defined in the build.sbt which is something you probably don't want.
 
 Documentation for the scripted plugin is not the best. You can find a tutorial here: [Testing SBT plugins](http://eed3si9n.com/testing-sbt-plugins)

@@ -1,13 +1,15 @@
 package com.mnubo
 package dbevolv
 
-import java.io.{FileFilter, File}
+import java.io.{File, FileFilter}
 
 import com.mnubo.dbevolv.util.Logging
 import com.mnubo.dbevolv.util.MD5
+import com.typesafe.config.Config
 
 object DatabaseMigrator extends Logging {
   private case class MigrationContext(connection: DatabaseConnection,
+                                      config: Config,
                                       name: String,
                                       targetVersion: Option[String],
                                       skipSchemaVerification: Boolean,
@@ -18,7 +20,7 @@ object DatabaseMigrator extends Logging {
 
     log.info(s"Will upgrade $name to ${version.getOrElse("latest")} version.")
 
-    migrate(MigrationContext(config.connection, name, version, skipSchemaVerification, applyUpgradesTwice))
+    migrate(MigrationContext(config.connection, config.wholeConfig, name, version, skipSchemaVerification, applyUpgradesTwice))
   }
 
   /**
@@ -81,7 +83,7 @@ object DatabaseMigrator extends Logging {
     if (isInstalledMigrationsSequenceCorrupted(availableMigrations, installedVersions))
       throw new Exception("CRITICAL: the migrations installed are not the expected ones.")
 
-    validateInstalledMigrationsChecksums(installedMigrations)
+    validateInstalledMigrationsChecksums(installedMigrations, ctx)
 
     val migrationSpec = getMigrationToApply(ctx.targetVersion, availableMigrations, installedMigrations)
 
@@ -102,14 +104,27 @@ object DatabaseMigrator extends Logging {
     MigrationReport(migrationSpec.startingVersion, migrationSpec.migratedToVersion)
   }
 
-  private def validateInstalledMigrationsChecksums(installedMigrations: Set[InstalledVersion]) = {
+  private def validateInstalledMigrationsChecksums(installedMigrations: Set[InstalledVersion], ctx: MigrationContext) = {
+    import ctx._
+
+    val ignored_checksums = config
+      .getString("ignored_checksums")
+      .split(",")
+      .toSeq
+
     for {
       InstalledVersion(version, _, checksum) <- installedMigrations.toSeq.sortBy(_.version)
-      if checksum != null && !checksum.isEmpty
-      currentChecksum = MD5.forStatementFile(version, Set("upgrade.", "rebase."))
+      computedChecksum = MD5.forStatementFile(version, Set("upgrade.", "rebase."))
+      actualChecksum =
+        if (ignored_checksums.contains(checksum)) {
+          connection.updateChecksum(version, computedChecksum)
+          computedChecksum
+        }
+        else
+          checksum
     } {
-      if (checksum != currentChecksum)
-        throw new Exception(s"Schema manager migration $version has been tampered with. Installed checksum: $checksum. Schema manager checksum: $currentChecksum")
+      if (actualChecksum != null && !actualChecksum.isEmpty && actualChecksum != computedChecksum)
+        throw new Exception(s"Schema manager migration $version has been tampered with. Installed checksum: $actualChecksum. Schema manager checksum: $computedChecksum")
     }
   }
 
