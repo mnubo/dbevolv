@@ -176,6 +176,20 @@ TaskKey[Unit]("check-mgr") := {
       )
       execute("ALTER TABLE mysqldb.kv CHANGE COLUMN v2 v VARCHAR(255)")
 
+      logger.info("TEST: Fiddle with ignored checksum and make sure the schema manager applies the migration")
+      execute("UPDATE mysqldb.mysqldb_version SET checksum='def' WHERE migration_version = '0001'")
+      assert(
+        runShell(mgrCmd) == 0,
+        "The schema manager should have run successfully"
+      )
+      val newChecksum = query("SELECT checksum FROM mysqldb.mysqldb_version WHERE migration_version = '0001'")(_.getString("checksum")).head
+      assert(
+        newChecksum == checksum1,
+        s"Checksum as not been updated as expected. $newChecksum != $checksum1"
+      )
+
+      // In case of the previous test was failed...
+      execute(s"UPDATE mysqldb.mysqldb_version SET checksum='$checksum1' WHERE migration_version = '0001'")
       logger.info("TEST: Finally, make sure we can re-apply latest migration")
       assert(
         runShell(mgrCmd) == 0,

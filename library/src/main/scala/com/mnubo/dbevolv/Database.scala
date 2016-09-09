@@ -33,6 +33,7 @@ trait DatabaseConnection extends Closeable {
   def getInstalledMigrationVersions: Set[InstalledVersion]
   def markMigrationAsInstalled(migrationVersion: String, checksum: String, isRebase: Boolean)
   def markMigrationAsUninstalled(migrationVersion: String)
+  def updateChecksum(migrationVersion: String, newChecksum: String)
   def isSchemaValid: Boolean
   def isSameSchema(connection:DatabaseConnection): Boolean
 }

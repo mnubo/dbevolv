@@ -146,6 +146,8 @@ TaskKey[Unit]("check-mgr") := {
         .map("%02x".format(_))
         .mkString
 
+      val ignoredChecksum = "def"
+
       val expectedMetadata = Seq(
         Metadata("0001", checksum1),
         Metadata("0002", checksum2)
@@ -211,6 +213,20 @@ TaskKey[Unit]("check-mgr") := {
       )
 
       client
+        .prepareIndex(indexName, s"${indexName}_version", "0001")
+        .setSource(
+          "migration_date", "1970-01-01T00:00:00.000Z",
+          "checksum", ignoredChecksum)
+        .get
+      client
+        .prepareIndex(indexName, s"${indexName}_version", "0002")
+        .setSource(
+          "migration_date", "1970-01-01T00:00:00.000Z",
+          "checksum", checksum2)
+        .get
+
+
+      client
         .admin
         .indices
         .preparePutMapping(indexName)
@@ -233,6 +249,17 @@ TaskKey[Unit]("check-mgr") := {
             |}
           """.stripMargin)
         .get
+
+      logger.info("TEST: Fiddle with ignored checksum and make sure the schema manager applies the migration")
+      assert(
+        runShell(mgrCmd) == 0,
+        "The schema manager should have accepted to proceed with a ignored checksum"
+      )
+
+      assert(
+        metadata == expectedMetadata,
+        s"Actual metadata ($metadata) do not match expected ($expectedMetadata)"
+      )
 
       logger.info("TEST: Finally, make sure we can re-apply latest migration")
       assert(
