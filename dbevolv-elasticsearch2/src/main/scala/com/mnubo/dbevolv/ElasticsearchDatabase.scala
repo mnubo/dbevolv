@@ -175,6 +175,25 @@ class Elasticsearch2Connection(docker: Docker,
       .get
   }
 
+  override def updateChecksum(migrationVersion: String, newChecksum: String) = {
+    client
+      .prepareUpdate(indexName, versionTypeName, migrationVersion)
+      .setDoc("checksum", newChecksum)
+      .get()
+
+    client
+      .admin
+      .indices
+      .prepareFlush(indexName)
+      .setForce(true)
+      .setWaitIfOngoing(true)
+      .get
+
+    val updatedChecksum = getInstalledMigrationVersions.filter(_.version == migrationVersion).head.checksum
+    if (updatedChecksum != newChecksum)
+      throw new Exception(s"Checksum of migration $migrationVersion hasn't been updated. $updatedChecksum != $newChecksum")
+  }
+
   override def close() =
     Try(client.close())
 

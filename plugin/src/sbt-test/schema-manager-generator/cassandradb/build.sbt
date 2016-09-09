@@ -179,6 +179,18 @@ TaskKey[Unit]("check-mgr") := {
       Thread.sleep(10000)
       execute("ALTER TABLE cassandradb.kv RENAME k2 TO k")
 
+      logger.info("TEST: Fiddle with ignored checksum and make sure the schema manager applies the migration")
+      execute("UPDATE cassandradb.cassandradb_version SET checksum='def' WHERE migration_version = '0001'")
+      assert(
+        runShell(mgrCmd) == 0,
+        "The schema manager should have run successfully"
+      )
+      assert(
+        query("SELECT migration_version, checksum FROM cassandradb.cassandradb_version WHERE migration_version = '0001'")(new Metadata(_)) == Seq(Metadata("0001", checksum1)),
+        "Checksum as not been updated as expected."
+      )
+
+
       logger.info("TEST: Finally, make sure we can re-apply latest migration")
       // Actual migrations on our test db start here.
       assert(
